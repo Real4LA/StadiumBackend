@@ -5,7 +5,7 @@ services:
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
     startCommand: >
       python manage.py migrate &&
-      python manage.py createsuperuser --noinput &&
+      python manage.py add_new_superuser &&
       gunicorn backend.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: PYTHON_VERSION
@@ -32,12 +32,6 @@ services:
         value: nzst ooly swnz hcwx
       - key: DEFAULT_FROM_EMAIL
         value: "Tottenham Stadium <stadium.v0.1.0@gmail.com>"
-      - key: DJANGO_SUPERUSER_USERNAME
-        value: admin
-      - key: DJANGO_SUPERUSER_EMAIL
-        value: stadium.v0.1.0@gmail.com
-      - key: DJANGO_SUPERUSER_PASSWORD
-        value: StadiumAdmin2024!
 
 databases:
   - name: stadium-db
