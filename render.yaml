@@ -3,7 +3,11 @@ services:
     name: stadium-backend
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python manage.py collectstatic --noinput && gunicorn backend.wsgi:application --bind 0.0.0.0:$PORT
+    startCommand: >
+      python manage.py collectstatic --noinput &&
+      python manage.py migrate &&
+      echo "from django.contrib.auth.models import User; User.objects.create_superuser('admin', 'stadium.v0.1.0@gmail.com', 'StadiumAdmin2024!') if not User.objects.filter(username='admin').exists() else None" | python manage.py shell &&
+      gunicorn backend.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -12,7 +16,7 @@ services:
       - key: ALLOWED_HOSTS
         value: .onrender.com
       - key: CORS_ALLOWED_ORIGINS
-        sync: false # Will be set manually in dashboard
+        value: https://stadium-frontend.onrender.com
       - key: DATABASE_URL
         sync: false # Will be set manually in dashboard
       - key: SECRET_KEY
