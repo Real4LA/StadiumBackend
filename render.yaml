@@ -3,10 +3,7 @@ services:
     name: stadium-backend
     env: python
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
-    startCommand: >
-      python manage.py migrate &&
-      echo "from django.contrib.auth.models import User; User.objects.all().delete(); User.objects.create_superuser('admin', 'admin@admin.com', 'admin')" | python manage.py shell &&
-      gunicorn backend.wsgi:application --bind 0.0.0.0:$PORT
+    startCommand: python manage.py migrate && gunicorn backend.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
