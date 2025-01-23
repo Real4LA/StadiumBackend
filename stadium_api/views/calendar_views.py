@@ -12,17 +12,20 @@ import os
 def get_calendar_service():
     """Helper function to create Google Calendar service."""
     try:
+        print("\n=== Starting Calendar Service Initialization ===")
         # Get credentials from environment variable
         creds_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS')
         if not creds_json:
+            print("ERROR: Google service account credentials not found in environment")
             raise ValueError("Google service account credentials not found in environment")
         
         # Parse credentials from JSON string
         try:
             creds_info = json.loads(creds_json)
             print("Successfully parsed service account credentials")
+            print(f"Service account email: {creds_info.get('client_email')}")
         except json.JSONDecodeError as e:
-            print(f"Error parsing service account credentials: {str(e)}")
+            print(f"ERROR: Failed to parse service account credentials: {str(e)}")
             raise ValueError("Invalid service account credentials format")
         
         try:
@@ -32,7 +35,7 @@ def get_calendar_service():
             )
             print("Successfully created service account credentials")
         except Exception as e:
-            print(f"Error creating service account credentials: {str(e)}")
+            print(f"ERROR: Failed to create service account credentials: {str(e)}")
             raise ValueError("Failed to create service account credentials")
         
         try:
@@ -40,16 +43,20 @@ def get_calendar_service():
             print("Successfully created calendar service")
             
             # Test calendar access
-            service.calendarList().list().execute()
-            print("Successfully verified calendar access")
+            calendars = service.calendarList().list().execute()
+            print(f"\nFound {len(calendars.get('items', []))} calendars:")
+            for cal in calendars.get('items', []):
+                print(f"- {cal.get('summary', 'Unnamed')} ({cal.get('id')})")
+                print(f"  Access Role: {cal.get('accessRole', 'unknown')}")
             
+            print("\n=== Calendar Service Initialization Complete ===")
             return service
         except Exception as e:
-            print(f"Error building calendar service or testing access: {str(e)}")
+            print(f"ERROR: Failed to build calendar service or test access: {str(e)}")
             raise ValueError("Failed to create or verify calendar service")
             
     except Exception as e:
-        print(f"Error in get_calendar_service: {str(e)}")
+        print(f"ERROR: Calendar service initialization failed: {str(e)}")
         raise ValueError(f"Calendar service initialization failed: {str(e)}")
 
 @api_view(['GET'])
@@ -291,7 +298,7 @@ def cancel_booking(request):
 def my_bookings(request):
     """Get all bookings for the current user."""
     try:
-        print("=== Starting my_bookings ===")
+        print("\n=== Starting my_bookings ===")
         print(f"User ID: {request.user.id}")
         print(f"User Email: {request.user.email}")
         
@@ -302,11 +309,12 @@ def my_bookings(request):
         try:
             calendars_result = service.calendarList().list().execute()
             calendars = calendars_result.get('items', [])
-            print(f"Found {len(calendars)} calendars")
+            print(f"\nFound {len(calendars)} calendars")
             for cal in calendars:
                 print(f"Calendar: {cal.get('summary')} ({cal.get('id')})")
+                print(f"Access Role: {cal.get('accessRole', 'unknown')}")
         except Exception as e:
-            print(f"Error getting calendars: {str(e)}")
+            print(f"ERROR: Failed to get calendars: {str(e)}")
             raise
         
         all_bookings = []
@@ -363,7 +371,7 @@ def my_bookings(request):
                         print("No match, skipping event")
                         
             except Exception as e:
-                print(f"Error processing calendar {calendar_id}: {str(e)}")
+                print(f"ERROR: Failed to process calendar {calendar_id}: {str(e)}")
                 continue
         
         print(f"\n=== Completed my_bookings ===")
@@ -371,7 +379,7 @@ def my_bookings(request):
         return Response({'bookings': all_bookings})
     
     except Exception as e:
-        print(f"Error in my_bookings: {str(e)}")
+        print(f"ERROR: Failed in my_bookings: {str(e)}")
         return Response(
             {'error': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
