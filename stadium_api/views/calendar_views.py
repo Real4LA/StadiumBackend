@@ -352,12 +352,14 @@ def my_bookings(request):
                     
                     # Add slot
                     slot = {
+                        'date': start_dt.strftime('%Y-%m-%d'),
                         'start': start_dt.strftime('%H:%M'),
                         'end': end_dt.strftime('%H:%M'),
                         'event_id': event['id'],
                         'stadiumId': stadium['id'],
                         'stadiumName': stadium['name'],
-                        'calendar_id': calendar_id
+                        'calendar_id': calendar_id,
+                        'status': 'booked'
                     }
                     all_slots.append(slot)
                     
@@ -365,7 +367,9 @@ def my_bookings(request):
                 print(f"Error processing calendar {calendar_id}: {str(e)}")
                 continue
         
-        return Response({'slots': all_slots})
+        # Sort slots by date and time
+        all_slots.sort(key=lambda x: (x['date'], x['start']))
+        return Response({'bookings': all_slots})
         
     except Exception as e:
         return Response(
