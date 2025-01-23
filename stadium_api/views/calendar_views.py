@@ -291,65 +291,83 @@ def cancel_booking(request):
 def my_bookings(request):
     """Get all bookings for the current user."""
     try:
+        print("=== Starting my_bookings ===")
+        print(f"User ID: {request.user.id}")
+        print(f"User Email: {request.user.email}")
+        
         # Get calendar service
         service = get_calendar_service()
         
         # Get all calendars
-        calendars_result = service.calendarList().list().execute()
-        calendars = calendars_result.get('items', [])
-        
-        print(f"Fetching bookings for user: {request.user.id}")
+        try:
+            calendars_result = service.calendarList().list().execute()
+            calendars = calendars_result.get('items', [])
+            print(f"Found {len(calendars)} calendars")
+            for cal in calendars:
+                print(f"Calendar: {cal.get('summary')} ({cal.get('id')})")
+        except Exception as e:
+            print(f"Error getting calendars: {str(e)}")
+            raise
         
         all_bookings = []
         for calendar in calendars:
             calendar_id = calendar['id']
-            print(f"Checking calendar: {calendar_id}")
+            print(f"\nProcessing calendar: {calendar['summary']} ({calendar_id})")
             
             # Get events from now onwards
             now = datetime.utcnow().isoformat() + 'Z'
-            events_result = service.events().list(
-                calendarId=calendar_id,
-                timeMin=now,
-                maxResults=100,  # Limit to 100 events per calendar
-                singleEvents=True,
-                orderBy='startTime'
-            ).execute()
-            
-            events = events_result.get('items', [])
-            print(f"Found {len(events)} events in calendar {calendar['summary']}")
-            
-            # Filter events booked by the current user
-            for event in events:
-                # Get user ID from extended properties
-                event_user_id = (event.get('extendedProperties', {})
-                               .get('private', {})
-                               .get('user_id'))
+            try:
+                events_result = service.events().list(
+                    calendarId=calendar_id,
+                    timeMin=now,
+                    maxResults=100,
+                    singleEvents=True,
+                    orderBy='startTime'
+                ).execute()
                 
-                print(f"Event user_id: {event_user_id}, Current user_id: {str(request.user.id)}")
+                events = events_result.get('items', [])
+                print(f"Found {len(events)} events in calendar")
                 
-                # Check if event is booked by current user
-                if event_user_id == str(request.user.id):
-                    print(f"Found booking for current user in {calendar['summary']}")
+                # Filter events booked by the current user
+                for event in events:
+                    event_props = event.get('extendedProperties', {}).get('private', {})
+                    event_user_id = event_props.get('user_id')
                     
-                    start = event['start'].get('dateTime', event['start'].get('date'))
-                    end = event['end'].get('dateTime', event['end'].get('date'))
+                    print(f"\nChecking event: {event.get('id')}")
+                    print(f"Event summary: {event.get('summary')}")
+                    print(f"Event user_id: {event_user_id}")
+                    print(f"Current user_id: {str(request.user.id)}")
+                    print(f"Extended properties: {event_props}")
                     
-                    # Convert to datetime objects for formatting
-                    start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
-                    end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
-                    
-                    booking = {
-                        'calendar_id': calendar_id,
-                        'event_id': event['id'],
-                        'stadium_name': calendar['summary'],  # Use calendar summary as stadium name
-                        'start_time': start_dt.isoformat() + 'Z',  # Full ISO format for frontend
-                        'end_time': end_dt.isoformat() + 'Z',  # Full ISO format for frontend
-                        'description': event.get('description', '')
-                    }
-                    all_bookings.append(booking)
-                    print(f"Added booking: {booking}")
+                    if event_user_id == str(request.user.id):
+                        print("Match found! Adding to bookings")
+                        
+                        start = event['start'].get('dateTime', event['start'].get('date'))
+                        end = event['end'].get('dateTime', event['end'].get('date'))
+                        
+                        # Convert to datetime objects for formatting
+                        start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
+                        end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
+                        
+                        booking = {
+                            'calendar_id': calendar_id,
+                            'event_id': event['id'],
+                            'stadium_name': calendar['summary'],
+                            'start_time': start_dt.isoformat() + 'Z',
+                            'end_time': end_dt.isoformat() + 'Z',
+                            'description': event.get('description', '')
+                        }
+                        all_bookings.append(booking)
+                        print(f"Added booking: {booking}")
+                    else:
+                        print("No match, skipping event")
+                        
+            except Exception as e:
+                print(f"Error processing calendar {calendar_id}: {str(e)}")
+                continue
         
-        print(f"Found {len(all_bookings)} bookings for user {request.user.id}")
+        print(f"\n=== Completed my_bookings ===")
+        print(f"Total bookings found: {len(all_bookings)}")
         return Response({'bookings': all_bookings})
     
     except Exception as e:
