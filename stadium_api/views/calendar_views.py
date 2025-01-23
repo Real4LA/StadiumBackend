@@ -310,18 +310,26 @@ def my_bookings(request):
             events_result = service.events().list(
                 calendarId=calendar_id,
                 timeMin=now,
+                maxResults=100,  # Limit to 100 events per calendar
                 singleEvents=True,
                 orderBy='startTime'
             ).execute()
             
             events = events_result.get('items', [])
+            print(f"Found {len(events)} events in calendar {calendar['summary']}")
             
             # Filter events booked by the current user
             for event in events:
+                # Get user ID from extended properties
+                event_user_id = (event.get('extendedProperties', {})
+                               .get('private', {})
+                               .get('user_id'))
+                
+                print(f"Event user_id: {event_user_id}, Current user_id: {str(request.user.id)}")
+                
                 # Check if event is booked by current user
-                if (event.get('extendedProperties', {})
-                        .get('private', {})
-                        .get('user_id') == str(request.user.id)):
+                if event_user_id == str(request.user.id):
+                    print(f"Found booking for current user in {calendar['summary']}")
                     
                     start = event['start'].get('dateTime', event['start'].get('date'))
                     end = event['end'].get('dateTime', event['end'].get('date'))
@@ -332,16 +340,16 @@ def my_bookings(request):
                     
                     booking = {
                         'calendar_id': calendar_id,
-                        'calendar_name': calendar['summary'],
                         'event_id': event['id'],
-                        'date': start_dt.strftime('%Y-%m-%d'),
-                        'start_time': start_dt.strftime('%H:%M'),
-                        'end_time': end_dt.strftime('%H:%M'),
+                        'stadium_name': calendar['summary'],  # Use calendar summary as stadium name
+                        'start_time': start_dt.isoformat() + 'Z',  # Full ISO format for frontend
+                        'end_time': end_dt.isoformat() + 'Z',  # Full ISO format for frontend
                         'description': event.get('description', '')
                     }
                     all_bookings.append(booking)
+                    print(f"Added booking: {booking}")
         
-        print(f"Found {len(all_bookings)} bookings for user")
+        print(f"Found {len(all_bookings)} bookings for user {request.user.id}")
         return Response({'bookings': all_bookings})
     
     except Exception as e:
