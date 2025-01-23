@@ -166,15 +166,14 @@ def book_slot(request):
         from ..models import UserProfile
         
         with transaction.atomic():
-            try:
-                user_profile = request.user.userprofile
-            except (UserProfile.DoesNotExist, AttributeError):
-                # Create a new profile if it doesn't exist
-                user_profile = UserProfile.objects.create(
-                    user=request.user,
-                    phone="No phone"  # Default value
-                )
+            user_profile, created = UserProfile.objects.get_or_create(
+                user=request.user,
+                defaults={'phone': "No phone"}  # Only used if a new profile is created
+            )
+            if created:
                 print(f"Created new profile for user {request.user.id}")
+            else:
+                print(f"Using existing profile for user {request.user.id}")
         
         # Get user details
         user_name = f"{request.user.first_name} {request.user.last_name}".strip() or "Anonymous"
