@@ -108,15 +108,22 @@ def available_slots(request):
             start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
             end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
             
-            # Add slot if it's available
+            # Check if the slot is booked by checking for user_id in extendedProperties
+            is_booked = False
+            extended_props = event.get('extendedProperties', {}).get('private', {})
+            if extended_props.get('user_id'):
+                is_booked = True
+                print(f"Slot {start_dt.strftime('%H:%M')} is booked by user {extended_props.get('user_id')}")
+            
+            # Add slot
             slots.append({
                 'start': start_dt.strftime('%H:%M'),
                 'end': end_dt.strftime('%H:%M'),
                 'event_id': event['id'],
-                'booked': event.get('extendedProperties', {}).get('private', {}).get('booked', 'false') == 'true'
+                'booked': is_booked
             })
         
-        print(f"Returning {len(slots)} available slots")
+        print(f"Returning {len(slots)} slots ({sum(1 for s in slots if s['booked'])} booked)")
         return Response({'slots': slots})
     
     except Exception as e:
