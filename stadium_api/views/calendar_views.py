@@ -152,6 +152,19 @@ def book_slot(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Check if user is in cooldown period
+        from ..models import UserProfile
+        user_profile = UserProfile.objects.get(user=request.user)
+        if user_profile.last_cancellation:
+            current_time = datetime.utcnow()
+            time_since_cancel = current_time - user_profile.last_cancellation.replace(tzinfo=None)
+            if time_since_cancel < timedelta(hours=1):
+                minutes_left = int((timedelta(hours=1) - time_since_cancel).total_seconds() / 60)
+                return Response(
+                    {'error': f'You recently cancelled a booking. Please wait {minutes_left} minutes before booking again.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
         # Get calendar service
         service = get_calendar_service()
         
@@ -167,20 +180,6 @@ def book_slot(request):
                 {'error': 'This slot is already booked'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Get or create user profile
-        from django.db import transaction
-        from ..models import UserProfile
-        
-        with transaction.atomic():
-            user_profile, created = UserProfile.objects.get_or_create(
-                user=request.user,
-                defaults={'phone': "No phone"}  # Only used if a new profile is created
-            )
-            if created:
-                print(f"Created new profile for user {request.user.id}")
-            else:
-                print(f"Using existing profile for user {request.user.id}")
         
         # Get user details
         user_name = f"{request.user.first_name} {request.user.last_name}".strip() or "Anonymous"
@@ -262,10 +261,20 @@ def cancel_booking(request):
                 status=status.HTTP_403_FORBIDDEN
             )
         
+        # Update user's last cancellation time
+        from django.db import transaction
+        from ..models import UserProfile
+        
+        with transaction.atomic():
+            user_profile, _ = UserProfile.objects.get_or_create(user=request.user)
+            user_profile.last_cancellation = datetime.utcnow()
+            user_profile.save()
+        
         # Reset event to default state
         event.update({
             'summary': 'match',
             'description': 'match',
+            'colorId': '2',  # Green color
             'transparency': 'transparent'  # Show as free
         })
         
