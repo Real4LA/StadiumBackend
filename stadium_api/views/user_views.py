@@ -50,7 +50,8 @@ class UserViewSet(viewsets.ModelViewSet):
                 )
 
             # Check if phone exists
-            if UserProfile.objects.filter(phone=request.data.get('phone')).exists():
+            phone = request.data.get('phone')
+            if phone and UserProfile.objects.filter(phone=phone).exists():
                 return Response(
                     {"error": "Phone number already exists"},
                     status=status.HTTP_400_BAD_REQUEST
@@ -67,10 +68,9 @@ class UserViewSet(viewsets.ModelViewSet):
             logger.info(f"Generated verification code: {verification_code}")
 
             # Update profile with verification code
-            UserProfile.objects.filter(user_id=user.id).update(
-                verification_code=verification_code,
-                is_verified=False
-            )
+            user.profile.verification_code = verification_code
+            user.profile.is_verified = False
+            user.profile.save()
             
             # Send verification email
             subject = 'Verify your email address'
