@@ -2,9 +2,13 @@
 
 from .user_views import UserViewSet, user_login
 from .auth import register_user
+from .calendar_views import available_slots, book_slot, cancel_booking
 
 __all__ = [
     'UserViewSet',
     'user_login',
     'register_user',
+    'available_slots',
+    'book_slot',
+    'cancel_booking',
 ] 
