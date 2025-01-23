@@ -9,6 +9,7 @@ from .views import (
     token_obtain_pair,
     get_user_info
 )
+from .views.auth import token_obtain_pair, get_user_info
 
 router = DefaultRouter()
 router.register(r'users', UserViewSet)
@@ -18,6 +19,7 @@ urlpatterns = [
     path('login/', user_login, name='user-login'),
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('token/login/', token_obtain_pair, name='token_obtain_pair'),
     # Calendar endpoints
     path('calendar/', CalendarAPIView.as_view(), name='calendar'),
     path('calendar/available_slots/', CalendarAPIView.as_view(), name='available_slots'),

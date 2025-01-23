@@ -26,18 +26,21 @@ def register_user(request):
 def token_obtain_pair(request):
     username = request.data.get('username')
     password = request.data.get('password')
+    
     user = authenticate(username=username, password=password)
     
     if user is not None:
         refresh = RefreshToken.for_user(user)
         return Response({
-            'refresh': str(refresh),
             'access': str(refresh.access_token),
+            'refresh': str(refresh),
             'user': UserSerializer(user).data
         })
     else:
-        return Response({'error': 'Invalid credentials'}, 
-                      status=status.HTTP_401_UNAUTHORIZED)
+        return Response(
+            {'detail': 'Invalid credentials'}, 
+            status=status.HTTP_401_UNAUTHORIZED
+        )
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
