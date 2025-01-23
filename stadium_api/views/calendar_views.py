@@ -301,21 +301,45 @@ def my_bookings(request):
         print("\n=== Starting my_bookings ===")
         print(f"User ID: {request.user.id}")
         print(f"User Email: {request.user.email}")
+        print(f"Request path: {request.path}")
+        print(f"Request method: {request.method}")
+        print(f"Request headers: {dict(request.headers)}")
         
         # Get calendar service
-        service = get_calendar_service()
+        try:
+            service = get_calendar_service()
+            print("Successfully got calendar service")
+        except Exception as e:
+            print(f"ERROR: Failed to get calendar service: {str(e)}")
+            return Response(
+                {'error': 'Failed to access calendar service'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
         
         # Get all calendars
         try:
+            print("\nFetching calendar list...")
             calendars_result = service.calendarList().list().execute()
             calendars = calendars_result.get('items', [])
-            print(f"\nFound {len(calendars)} calendars")
+            print(f"Found {len(calendars)} calendars")
+            
+            if not calendars:
+                print("WARNING: No calendars found. Check service account permissions.")
+                return Response({'bookings': []})
+                
             for cal in calendars:
-                print(f"Calendar: {cal.get('summary')} ({cal.get('id')})")
-                print(f"Access Role: {cal.get('accessRole', 'unknown')}")
+                print(f"\nCalendar details:")
+                print(f"- Summary: {cal.get('summary')}")
+                print(f"- ID: {cal.get('id')}")
+                print(f"- Access Role: {cal.get('accessRole')}")
+                print(f"- Primary: {cal.get('primary', False)}")
+                print(f"- Selected: {cal.get('selected', False)}")
         except Exception as e:
             print(f"ERROR: Failed to get calendars: {str(e)}")
-            raise
+            return Response(
+                {'error': 'Failed to retrieve calendars'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
         
         all_bookings = []
         for calendar in calendars:
@@ -325,27 +349,38 @@ def my_bookings(request):
             # Get events from now onwards
             now = datetime.utcnow().isoformat() + 'Z'
             try:
+                print(f"Fetching events from {now} onwards...")
                 events_result = service.events().list(
                     calendarId=calendar_id,
                     timeMin=now,
                     maxResults=100,
                     singleEvents=True,
-                    orderBy='startTime'
+                    orderBy='startTime',
+                    showDeleted=False
                 ).execute()
                 
                 events = events_result.get('items', [])
                 print(f"Found {len(events)} events in calendar")
                 
+                if not events:
+                    print("No events found in this calendar")
+                    continue
+                
                 # Filter events booked by the current user
                 for event in events:
+                    print(f"\nEvent details:")
+                    print(f"- ID: {event.get('id')}")
+                    print(f"- Summary: {event.get('summary')}")
+                    print(f"- Status: {event.get('status')}")
+                    print(f"- Created: {event.get('created')}")
+                    print(f"- Updated: {event.get('updated')}")
+                    
                     event_props = event.get('extendedProperties', {}).get('private', {})
                     event_user_id = event_props.get('user_id')
                     
-                    print(f"\nChecking event: {event.get('id')}")
-                    print(f"Event summary: {event.get('summary')}")
+                    print(f"Extended properties: {event_props}")
                     print(f"Event user_id: {event_user_id}")
                     print(f"Current user_id: {str(request.user.id)}")
-                    print(f"Extended properties: {event_props}")
                     
                     if event_user_id == str(request.user.id):
                         print("Match found! Adding to bookings")
@@ -363,7 +398,8 @@ def my_bookings(request):
                             'stadium_name': calendar['summary'],
                             'start_time': start_dt.isoformat() + 'Z',
                             'end_time': end_dt.isoformat() + 'Z',
-                            'description': event.get('description', '')
+                            'description': event.get('description', ''),
+                            'summary': event.get('summary', '')
                         }
                         all_bookings.append(booking)
                         print(f"Added booking: {booking}")
@@ -372,6 +408,7 @@ def my_bookings(request):
                         
             except Exception as e:
                 print(f"ERROR: Failed to process calendar {calendar_id}: {str(e)}")
+                print(f"Error details: {type(e).__name__}: {str(e)}")
                 continue
         
         print(f"\n=== Completed my_bookings ===")
@@ -380,6 +417,7 @@ def my_bookings(request):
     
     except Exception as e:
         print(f"ERROR: Failed in my_bookings: {str(e)}")
+        print(f"Error details: {type(e).__name__}: {str(e)}")
         return Response(
             {'error': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
