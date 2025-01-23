@@ -75,22 +75,6 @@ If you didn't create this account, you can safely ignore this email.
 Best regards,
 Tottenham Stadium Team
 '''
-            # Send verification email
-            try:
-                send_mail(
-                    subject,
-                    message,
-                    settings.DEFAULT_FROM_EMAIL,
-                    [request.data.get('email')],
-                    fail_silently=False,
-                )
-                logger.info(f"Successfully sent verification email to: {request.data.get('email')}")
-            except Exception as email_error:
-                logger.error(f"Failed to send verification email: {str(email_error)}")
-                return Response(
-                    {"error": "Failed to send verification email. Please try again."},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
 
             # Create user first
             serializer = self.get_serializer(data=request.data)
@@ -103,6 +87,26 @@ Tottenham Stadium Team
             user.profile.is_verified = False
             user.profile.save()
             logger.info("Updated user profile with verification code")
+
+            # Send verification email
+            try:
+                send_mail(
+                    subject,
+                    message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [user.email],
+                    fail_silently=False,
+                )
+                logger.info(f"Successfully sent verification email to: {user.email}")
+            except Exception as email_error:
+                logger.error(f"Failed to send verification email: {str(email_error)}")
+                logger.exception(email_error)
+                # If email fails, delete the user and return error
+                user.delete()
+                return Response({
+                    "error": "Failed to send verification email. Please try again.",
+                    "details": str(email_error)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
             # Generate tokens
             refresh = RefreshToken.for_user(user)
@@ -160,56 +164,42 @@ Tottenham Stadium Team
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
-                # Compare codes
-                stored_code = str(profile.verification_code or '').strip()
-                if not stored_code:
-                    logger.error("No verification code stored in profile")
-                    return Response(
-                        {"error": "No verification code found"},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-                logger.info("Code comparison:")
-                logger.info(f"- Stored code: '{stored_code}'")
-                logger.info(f"- Received code: '{code}'")
-                logger.info(f"- Match: {stored_code == code}")
-
-                if stored_code != code:
-                    logger.error("Verification code mismatch")
+                # Verify the code
+                if code != profile.verification_code:
+                    logger.error("Invalid verification code")
+                    logger.error(f"Received: {code}")
+                    logger.error(f"Expected: {profile.verification_code}")
                     return Response(
                         {"error": "Invalid verification code"},
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
-                # Activate user
+                # Code is valid, update profile and user
+                profile.is_verified = True
+                profile.verification_code = None  # Clear the code
+                profile.save()
+
+                # Activate the user
                 user = profile.user
                 user.is_active = True
                 user.save()
-                logger.info("User activated successfully")
 
-                # Mark as verified and clear code
-                profile.is_verified = True
-                profile.verification_code = None
-                profile.save()
-                logger.info("Profile marked as verified")
+                logger.info(f"Successfully verified user {user_id}")
 
-                # Generate tokens
+                # Generate tokens for automatic login
                 refresh = RefreshToken.for_user(user)
-                logger.info("Generated new tokens")
                 
-                response_data = {
+                return Response({
                     "message": "Email verified successfully",
+                    "user": UserSerializer(user).data,
                     "tokens": {
-                        "refresh": str(refresh),
                         "access": str(refresh.access_token),
-                    },
-                    "user": UserSerializer(user).data
-                }
-                logger.info("=== Verification Successful ===")
-                return Response(response_data)
+                        "refresh": str(refresh),
+                    }
+                })
 
             except UserProfile.DoesNotExist:
-                logger.error(f"No profile found for user_id: {user_id}")
+                logger.error(f"Profile not found for user_id: {user_id}")
                 return Response(
                     {"error": "User not found"},
                     status=status.HTTP_400_BAD_REQUEST
@@ -219,10 +209,10 @@ Tottenham Stadium Team
             logger.error("=== Verification Failed ===")
             logger.error(f"Error: {str(e)}")
             logger.exception(e)
-            return Response(
-                {"error": "Verification failed. Please try again."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({
+                "error": "Verification failed. Please try again.",
+                "details": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'], url_path='resend-code', permission_classes=[AllowAny], authentication_classes=[])
     def resend_code(self, request):
