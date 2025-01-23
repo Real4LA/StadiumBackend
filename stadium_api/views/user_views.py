@@ -75,6 +75,23 @@ If you didn't create this account, you can safely ignore this email.
 Best regards,
 Tottenham Stadium Team
 '''
+            # Send verification email
+            try:
+                send_mail(
+                    subject,
+                    message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [request.data.get('email')],
+                    fail_silently=False,
+                )
+                logger.info(f"Successfully sent verification email to: {request.data.get('email')}")
+            except Exception as email_error:
+                logger.error(f"Failed to send verification email: {str(email_error)}")
+                return Response(
+                    {"error": "Failed to send verification email. Please try again."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
             # Create user first
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
@@ -86,24 +103,6 @@ Tottenham Stadium Team
             user.profile.is_verified = False
             user.profile.save()
             logger.info("Updated user profile with verification code")
-
-            # Send verification email
-            logger.info(f"Attempting to send verification email to: {user.email}")
-            try:
-                send_mail(
-                    subject,
-                    message,
-                    settings.DEFAULT_FROM_EMAIL,
-                    [user.email],
-                    fail_silently=False,
-                )
-                logger.info(f"Successfully sent verification email to: {user.email}")
-            except Exception as email_error:
-                logger.error(f"Failed to send verification email: {str(email_error)}")
-                logger.exception(email_error)
-                # Even if email fails, we return success but log the error
-                # User can request resend if needed
-                logger.warning("Continuing despite email failure - user can request resend")
 
             # Generate tokens
             refresh = RefreshToken.for_user(user)
