@@ -6,7 +6,7 @@ from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from ..serializers import UserSerializer
 from django.contrib.auth.models import User
-from django.db import transaction, IntegrityError
+from django.db import transaction
 import logging
 
 logger = logging.getLogger(__name__)
@@ -17,28 +17,27 @@ def register_user(request):
     try:
         with transaction.atomic():
             serializer = UserSerializer(data=request.data)
-            if serializer.is_valid():
-                user = serializer.save()
-                refresh = RefreshToken.for_user(user)
+            if not serializer.is_valid():
                 return Response({
-                    'user': UserSerializer(user).data,
-                    'refresh': str(refresh),
-                    'access': str(refresh.access_token),
-                }, status=status.HTTP_201_CREATED)
-            
+                    'errors': serializer.errors
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            user = serializer.save()
+            refresh = RefreshToken.for_user(user)
             return Response({
-                'errors': serializer.errors
-            }, status=status.HTTP_400_BAD_REQUEST)
+                'user': UserSerializer(user).data,
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            }, status=status.HTTP_201_CREATED)
             
-    except IntegrityError as e:
-        logger.error(f"IntegrityError during registration: {str(e)}")
+    except serializers.ValidationError as e:
         return Response({
-            'error': 'An account with these details already exists.'
+            'errors': e.detail
         }, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.exception("Unexpected error during registration")
         return Response({
-            'error': 'An unexpected error occurred during registration.'
+            'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
