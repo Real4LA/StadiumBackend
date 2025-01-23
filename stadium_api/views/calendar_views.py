@@ -322,46 +322,42 @@ def my_bookings(request):
             print(f"\nChecking calendar: {calendar['summary']}")
             
             try:
-                # Get all events that are marked as booked (summary contains "BOOKED")
+                # Get events for today onwards
                 events_result = service.events().list(
                     calendarId=calendar_id,
                     timeMin=now,
-                    maxResults=100,
                     singleEvents=True,
-                    orderBy='startTime',
-                    q='BOOKED'  # Search for events marked as booked
+                    orderBy='startTime'
                 ).execute()
                 
                 events = events_result.get('items', [])
-                print(f"Found {len(events)} booked events")
+                print(f"Found {len(events)} events")
                 
+                # Process events into bookings
                 for event in events:
-                    # Only process events that are actually booked
-                    if '🏟️ BOOKED MATCH' not in event.get('summary', ''):
-                        continue
-                        
                     # Check if this event is booked by the current user
                     description = event.get('description', '')
                     user_id_pattern = f"🆔 User ID: {user_id_str}"
+                    
                     if user_id_pattern not in description:
                         continue
-                        
-                    print(f"Found booking for user {user_id_str}")
                     
                     start = event['start'].get('dateTime', event['start'].get('date'))
                     end = event['end'].get('dateTime', event['end'].get('date'))
                     
-                    # Convert to datetime objects for formatting
+                    # Convert to datetime objects
                     start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
                     end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
                     
+                    # Add booking
                     booking = {
                         'calendar_id': calendar_id,
                         'event_id': event['id'],
                         'stadium_name': calendar['summary'],
                         'start_time': start_dt.isoformat() + 'Z',
                         'end_time': end_dt.isoformat() + 'Z',
-                        'summary': event.get('summary', '')
+                        'start': start_dt.strftime('%H:%M'),
+                        'end': end_dt.strftime('%H:%M')
                     }
                     all_bookings.append(booking)
                     print(f"Added booking: {booking}")
@@ -370,10 +366,7 @@ def my_bookings(request):
                 print(f"Error processing calendar {calendar_id}: {str(e)}")
                 continue
         
-        # Sort bookings by start time
-        all_bookings.sort(key=lambda x: x['start_time'])
         print(f"\nTotal bookings found: {len(all_bookings)}")
-        
         return Response({'bookings': all_bookings})
         
     except Exception as e:
