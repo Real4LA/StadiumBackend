@@ -20,5 +20,5 @@ urlpatterns = [
     path('calendar/available_slots/', available_slots, name='available-slots'),
     path('calendar/book_slot/', book_slot, name='book-slot'),
     path('calendar/cancel_booking/', cancel_booking, name='cancel-booking'),
-    path('calendar/my-bookings/', my_bookings, name='my-bookings'),
+    path('calendar/my_bookings/', my_bookings, name='my-bookings'),
 ]
