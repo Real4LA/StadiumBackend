@@ -29,20 +29,22 @@ def register_user(request):
         logger.error(f"Registration validation errors: {serializer.errors}")
         
         # Format error response
-        error_response = {}
+        error_messages = {}
         for field, errors in serializer.errors.items():
             if field == 'profile':
                 for profile_field, profile_errors in errors[0].items():
-                    error_response[f"profile.{profile_field}"] = profile_errors[0]
+                    error_messages[f"profile.{profile_field}"] = profile_errors[0]
             else:
-                error_response[field] = errors[0]
+                error_messages[field] = errors[0]
         
-        return Response({'errors': error_response}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            'errors': error_messages
+        }, status=status.HTTP_400_BAD_REQUEST)
     
     except Exception as e:
         logger.exception("Unexpected error during registration")
         return Response(
-            {'error': 'An unexpected error occurred during registration'},
+            {'error': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
