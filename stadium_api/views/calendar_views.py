@@ -161,33 +161,33 @@ def book_slot(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Store original event details for reference
-        original_summary = event.get('summary', 'Match')
-        original_description = event.get('description', '')
+        # Get user profile details
+        user_profile = request.user.userprofile
+        user_name = f"{request.user.first_name} {request.user.last_name}".strip() or "Anonymous"
+        user_phone = user_profile.phone if hasattr(user_profile, 'phone') else "No phone"
         
         # Update event with booking information
         event['extendedProperties'] = event.get('extendedProperties', {})
         event['extendedProperties']['private'] = {
             'user_id': str(request.user.id),
             'booking_time': datetime.utcnow().isoformat() + 'Z',
-            'original_summary': original_summary,
-            'original_description': original_description
+            'user_name': user_name,
+            'user_phone': user_phone
         }
         
         # Update event details to show it's booked
         booking_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
         event.update({
-            'summary': f'🏟️ BOOKED: {original_summary}',
+            'summary': '🏟️ BOOKED MATCH',
             'description': (
-                f"🎫 STADIUM BOOKING\n"
-                f"───────────────\n"
-                f"{original_description}\n\n"
                 f"📋 BOOKING DETAILS\n"
                 f"───────────────\n"
+                f"👤 Name: {user_name}\n"
+                f"📱 Phone: {user_phone}\n"
                 f"🆔 User ID: {request.user.id}\n"
                 f"⏰ Booked on: {booking_time}"
             ),
-            'colorId': '11',  # Red color for booked events
+            'colorId': '2',  # Green color for booked events
             'transparency': 'opaque'  # Show as busy
         })
         
@@ -198,7 +198,7 @@ def book_slot(request):
             body=event
         ).execute()
         
-        print(f"Successfully booked slot for user {request.user.id}")
+        print(f"Successfully booked slot for user {request.user.id} ({user_name})")
         return Response({
             'message': 'Slot booked successfully',
             'event': updated_event
@@ -242,16 +242,10 @@ def cancel_booking(request):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Get original event details
-        private_props = event.get('extendedProperties', {}).get('private', {})
-        original_summary = private_props.get('original_summary', event.get('summary', '').replace('🏟️ BOOKED: ', ''))
-        original_description = private_props.get('original_description', '')
-        
-        # Restore event to original state
+        # Reset event to default state
         event.update({
-            'summary': original_summary,
-            'description': original_description,
-            'colorId': '2',  # Green color for available slots
+            'summary': 'match',
+            'description': 'match',
             'transparency': 'transparent'  # Show as free
         })
         
