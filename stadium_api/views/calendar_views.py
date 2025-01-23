@@ -304,11 +304,11 @@ def my_bookings(request):
         # Define stadium calendars
         stadiums = [
             {
-                'id': '7f7f09b9c36dcf8146e7b75a0f9a5f6a7c7e7e7c7e7e7e7c7e7e7e7c7e7e7e7@group.calendar.google.com',
+                'id': '433adde78c577df19c67e7d18b2e932c8aa5b60b05098687a13a227712510f5d@group.calendar.google.com',
                 'name': 'Stadium 1'
             },
             {
-                'id': '1d9c2a8c8f8d8c8d8c8d8c8d8c8d8c8d8c8d8c8d8c8d8c8d8c8d8c8d8c8d8@group.calendar.google.com',
+                'id': 'c0981f9f07e185a73808a13deb4e2648915ff7f9a28cfe35bb212ff87115a435@group.calendar.google.com',
                 'name': 'Stadium 2'
             },
             {
