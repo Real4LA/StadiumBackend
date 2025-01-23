@@ -28,35 +28,19 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return cleaned_phone
 
 class UserSerializer(serializers.ModelSerializer):
-    phone = serializers.CharField(required=False, allow_blank=True)  # Add phone field directly
+    profile = UserProfileSerializer(required=False)  # Nested serializer for profile
     password = serializers.CharField(write_only=True)
     email = serializers.EmailField(required=True)
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'password', 'first_name', 'last_name', 'phone')
+        fields = ('id', 'username', 'email', 'password', 'first_name', 'last_name', 'profile')
         extra_kwargs = {
             'password': {'write_only': True},
             'email': {'required': True},
             'first_name': {'required': False},
             'last_name': {'required': False}
         }
-
-    def validate_phone(self, value):
-        if not value:  # If phone is empty or None
-            return value
-            
-        # Clean the phone number
-        cleaned_phone = ''.join(filter(str.isdigit, str(value)))
-        
-        # Check if phone number exists (exclude current user if updating)
-        existing_profile = UserProfile.objects.filter(phone=cleaned_phone)
-        if self.instance:
-            existing_profile = existing_profile.exclude(user=self.instance)
-            
-        if existing_profile.exists():
-            raise serializers.ValidationError("This phone number is already registered")
-        return cleaned_phone
 
     def validate_email(self, value):
         if not value:
@@ -72,7 +56,10 @@ class UserSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        phone = validated_data.pop('phone', None)
+        profile_data = {}
+        if 'profile' in validated_data:
+            profile_data = validated_data.pop('profile')
+        
         password = validated_data.pop('password')
         
         # Create user
@@ -80,31 +67,17 @@ class UserSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
 
-        # Create or update profile
-        profile = UserProfile.objects.get_or_create(user=user)[0]
-        if phone:
-            profile.phone = phone
+        # Update profile with phone if provided
+        if profile_data:
+            profile = user.profile
+            profile.phone = profile_data.get('phone')
             profile.save()
-
-        # Send verification email
-        try:
-            send_mail(
-                subject=f"Welcome to {settings.SITE_NAME}",
-                message=f"Thank you for registering with {settings.SITE_NAME}. Your account has been created successfully.",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[validated_data['email']],
-                fail_silently=False,
-            )
-        except Exception as e:
-            # If email sending fails, rollback the transaction
-            logger.error(f"Failed to send email: {str(e)}")
-            raise serializers.ValidationError({"email": "Failed to send verification email. Please check your email address."})
 
         return user
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        phone = validated_data.pop('phone', None)
+        profile_data = validated_data.pop('profile', None)
         password = validated_data.pop('password', None)
 
         # Update user fields
@@ -117,9 +90,10 @@ class UserSerializer(serializers.ModelSerializer):
         instance.save()
 
         # Update profile
-        if phone is not None:  # Allow empty string to clear phone
+        if profile_data:
             profile = instance.profile
-            profile.phone = phone
+            if 'phone' in profile_data:
+                profile.phone = profile_data['phone']
             profile.save()
 
         return instance
