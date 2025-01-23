@@ -31,7 +31,11 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'your-local-dev-key')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
+ALLOWED_HOSTS = [
+    'stadiumbackend.onrender.com',
+    'localhost',
+    '127.0.0.1',
+]
 
 
 # Application definition
@@ -50,11 +54,11 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Add whitenoise for static files
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
-    'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -143,10 +147,13 @@ STORAGES = {
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS settings
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
+CORS_ALLOWED_ORIGINS = [
+    "https://stadium-frontend.onrender.com",
+    "http://localhost:3000",  # for local development
+]
+
 CORS_ALLOW_CREDENTIALS = True
 
-# Add CORS allowed methods
 CORS_ALLOW_METHODS = [
     'DELETE',
     'GET',
@@ -156,7 +163,6 @@ CORS_ALLOW_METHODS = [
     'PUT',
 ]
 
-# Add CORS allowed headers
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
