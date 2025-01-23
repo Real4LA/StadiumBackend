@@ -4,7 +4,10 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
     UserViewSet,
     user_login,
-    CalendarAPIView
+    CalendarAPIView,
+    register_user,
+    token_obtain_pair,
+    get_user_info
 )
 
 router = DefaultRouter()
@@ -20,4 +23,6 @@ urlpatterns = [
     path('calendar/available_slots/', CalendarAPIView.as_view(), name='available_slots'),
     path('calendar/book/', CalendarAPIView.as_view(), name='book_slot'),
     path('calendar/my-bookings/', CalendarAPIView.as_view(), name='my_bookings'),
+    path('users/', register_user, name='register'),
+    path('users/me/', get_user_info, name='user_info'),
 ] 
