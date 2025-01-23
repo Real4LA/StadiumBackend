@@ -311,9 +311,9 @@ def my_bookings(request):
         
         if not calendars:
             print("No calendars found")
-            return Response({'bookings': []})
+            return Response({'slots': []})
         
-        all_bookings = []
+        all_slots = []
         now = datetime.utcnow().isoformat() + 'Z'
         user_id_str = str(request.user.id)
         
@@ -333,7 +333,7 @@ def my_bookings(request):
                 events = events_result.get('items', [])
                 print(f"Found {len(events)} events")
                 
-                # Process events into bookings
+                # Process events into slots
                 for event in events:
                     # Check if this event is booked by the current user
                     description = event.get('description', '')
@@ -349,25 +349,24 @@ def my_bookings(request):
                     start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
                     end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
                     
-                    # Add booking
-                    booking = {
-                        'calendar_id': calendar_id,
-                        'event_id': event['id'],
-                        'stadium_name': calendar['summary'],
-                        'start_time': start_dt.isoformat() + 'Z',
-                        'end_time': end_dt.isoformat() + 'Z',
+                    # Add slot
+                    slot = {
                         'start': start_dt.strftime('%H:%M'),
-                        'end': end_dt.strftime('%H:%M')
+                        'end': end_dt.strftime('%H:%M'),
+                        'event_id': event['id'],
+                        'stadiumId': calendar.get('id'),  # Add stadiumId
+                        'stadiumName': calendar.get('summary'),  # Add stadiumName
+                        'calendar_id': calendar_id  # Keep calendar_id for operations
                     }
-                    all_bookings.append(booking)
-                    print(f"Added booking: {booking}")
+                    all_slots.append(slot)
+                    print(f"Added slot: {slot}")
                     
             except Exception as e:
                 print(f"Error processing calendar {calendar_id}: {str(e)}")
                 continue
         
-        print(f"\nTotal bookings found: {len(all_bookings)}")
-        return Response({'bookings': all_bookings})
+        print(f"\nTotal slots found: {len(all_slots)}")
+        return Response({'slots': all_slots})
         
     except Exception as e:
         print(f"Error in my_bookings: {str(e)}")
