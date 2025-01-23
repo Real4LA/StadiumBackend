@@ -161,17 +161,35 @@ def book_slot(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Store original event details for reference
+        original_summary = event.get('summary', 'Match')
+        original_description = event.get('description', '')
+        
         # Update event with booking information
         event['extendedProperties'] = event.get('extendedProperties', {})
         event['extendedProperties']['private'] = {
             'user_id': str(request.user.id),
-            'booking_time': datetime.utcnow().isoformat() + 'Z'
+            'booking_time': datetime.utcnow().isoformat() + 'Z',
+            'original_summary': original_summary,
+            'original_description': original_description
         }
         
-        # Update the event summary and description to show it's booked
-        original_description = event.get('description', '')
-        event['summary'] = f"Booked: {event.get('summary', 'Match')}"
-        event['description'] = f"{original_description}\n\nBooked by User ID: {request.user.id}\nBooking Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}"
+        # Update event details to show it's booked
+        booking_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+        event.update({
+            'summary': f'🏟️ BOOKED: {original_summary}',
+            'description': (
+                f"🎫 STADIUM BOOKING\n"
+                f"───────────────\n"
+                f"{original_description}\n\n"
+                f"📋 BOOKING DETAILS\n"
+                f"───────────────\n"
+                f"🆔 User ID: {request.user.id}\n"
+                f"⏰ Booked on: {booking_time}"
+            ),
+            'colorId': '11',  # Red color for booked events
+            'transparency': 'opaque'  # Show as busy
+        })
         
         # Update the event
         updated_event = service.events().update(
@@ -224,17 +242,22 @@ def cancel_booking(request):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Remove booking information
+        # Get original event details
+        private_props = event.get('extendedProperties', {}).get('private', {})
+        original_summary = private_props.get('original_summary', event.get('summary', '').replace('🏟️ BOOKED: ', ''))
+        original_description = private_props.get('original_description', '')
+        
+        # Restore event to original state
+        event.update({
+            'summary': original_summary,
+            'description': original_description,
+            'colorId': '2',  # Green color for available slots
+            'transparency': 'transparent'  # Show as free
+        })
+        
+        # Clear booking information
         event['extendedProperties'] = event.get('extendedProperties', {})
         event['extendedProperties']['private'] = {}
-        
-        # Restore original event summary and description
-        original_summary = event.get('summary', '').replace('Booked: ', '')
-        event['summary'] = original_summary
-        
-        # Remove booking information from description
-        description_lines = event.get('description', '').split('\n\n')
-        event['description'] = description_lines[0] if description_lines else ''
         
         # Update the event
         updated_event = service.events().update(
