@@ -188,11 +188,9 @@ REST_FRAMEWORK = {
 }
 
 # Google Calendar Settings
-GOOGLE_SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'service-account.json')
-if os.getenv('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS'):
-    # Write credentials from environment variable to file
-    with open(GOOGLE_SERVICE_ACCOUNT_FILE, 'w') as f:
-        f.write(os.getenv('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS'))
+GOOGLE_SERVICE_ACCOUNT_CREDENTIALS = os.getenv('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS')
+if not GOOGLE_SERVICE_ACCOUNT_CREDENTIALS:
+    print("Warning: GOOGLE_SERVICE_ACCOUNT_CREDENTIALS environment variable not set")
 
 # Logging configuration
 LOGGING = {
@@ -206,6 +204,13 @@ LOGGING = {
     'root': {
         'handlers': ['console'],
         'level': 'INFO',
+    },
+    'loggers': {
+        'stadium_api': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
     },
 }
 

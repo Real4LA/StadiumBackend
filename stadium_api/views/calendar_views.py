@@ -7,14 +7,26 @@ from googleapiclient.discovery import build
 from datetime import datetime, timedelta
 from django.conf import settings
 import json
+import os
 
 def get_calendar_service():
     """Helper function to create Google Calendar service."""
-    credentials = service_account.Credentials.from_service_account_file(
-        settings.GOOGLE_SERVICE_ACCOUNT_FILE,
-        scopes=['https://www.googleapis.com/auth/calendar']
-    )
-    return build('calendar', 'v3', credentials=credentials)
+    try:
+        # Get credentials from environment variable
+        creds_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS')
+        if not creds_json:
+            raise ValueError("Google service account credentials not found in environment")
+        
+        # Parse credentials from JSON string
+        creds_info = json.loads(creds_json)
+        credentials = service_account.Credentials.from_service_account_info(
+            creds_info,
+            scopes=['https://www.googleapis.com/auth/calendar']
+        )
+        return build('calendar', 'v3', credentials=credentials)
+    except Exception as e:
+        print(f"Error creating calendar service: {str(e)}")
+        raise
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
