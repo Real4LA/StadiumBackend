@@ -350,11 +350,13 @@ def my_bookings(request):
                     start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
                     end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
                     
-                    # Add slot
+                    # Add slot with ISO formatted dates
                     slot = {
-                        'date': start_dt.strftime('%Y-%m-%d'),
-                        'start': start_dt.strftime('%H:%M'),
-                        'end': end_dt.strftime('%H:%M'),
+                        'date': start_dt.date().isoformat(),  # YYYY-MM-DD
+                        'start_time': start_dt.isoformat() + 'Z',  # Full ISO timestamp
+                        'end_time': end_dt.isoformat() + 'Z',  # Full ISO timestamp
+                        'start': start_dt.strftime('%H:%M'),  # HH:MM for display
+                        'end': end_dt.strftime('%H:%M'),  # HH:MM for display
                         'event_id': event['id'],
                         'stadiumId': stadium['id'],
                         'stadiumName': stadium['name'],
