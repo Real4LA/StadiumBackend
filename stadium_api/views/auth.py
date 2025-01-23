@@ -6,6 +6,7 @@ from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from ..serializers import UserSerializer
 from django.contrib.auth.models import User
+from django.db import transaction, IntegrityError
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,38 +14,32 @@ logger = logging.getLogger(__name__)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_user(request):
-    serializer = UserSerializer(data=request.data)
-    
     try:
-        if serializer.is_valid():
-            user = serializer.save()
-            refresh = RefreshToken.for_user(user)
+        with transaction.atomic():
+            serializer = UserSerializer(data=request.data)
+            if serializer.is_valid():
+                user = serializer.save()
+                refresh = RefreshToken.for_user(user)
+                return Response({
+                    'user': UserSerializer(user).data,
+                    'refresh': str(refresh),
+                    'access': str(refresh.access_token),
+                }, status=status.HTTP_201_CREATED)
+            
             return Response({
-                'user': UserSerializer(user).data,
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
-            }, status=status.HTTP_201_CREATED)
-        
-        # Log validation errors
-        logger.error(f"Registration validation errors: {serializer.errors}")
-        
-        # Format error response
-        errors = {}
-        for field, error_list in serializer.errors.items():
-            if field == 'profile':
-                for profile_field, profile_errors in error_list[0].items():
-                    errors[f"profile.{profile_field}"] = profile_errors[0]
-            else:
-                errors[field] = error_list[0]
-        
-        return Response({'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
-    
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+    except IntegrityError as e:
+        logger.error(f"IntegrityError during registration: {str(e)}")
+        return Response({
+            'error': 'An account with these details already exists.'
+        }, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.exception("Unexpected error during registration")
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        return Response({
+            'error': 'An unexpected error occurred during registration.'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
