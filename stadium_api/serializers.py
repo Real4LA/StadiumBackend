@@ -8,21 +8,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = ('phone',)
 
     def validate_phone(self, value):
-        # Skip validation if no phone number is provided
-        if not value:
+        if not value:  # If phone is empty or None
             return value
             
         # Clean the phone number (remove spaces, dashes, etc.)
-        cleaned_phone = ''.join(filter(str.isdigit, value))
+        cleaned_phone = ''.join(filter(str.isdigit, str(value)))
         
-        # Check if phone number exists, excluding the current user if updating
-        existing_profile = UserProfile.objects.filter(phone=cleaned_phone)
-        if self.instance:  # If updating existing profile
-            existing_profile = existing_profile.exclude(user=self.instance.user)
-            
-        if existing_profile.exists():
-            raise serializers.ValidationError("This phone number is already registered.")
-            
+        # Check if phone number exists
+        if UserProfile.objects.filter(phone=cleaned_phone).exists():
+            raise serializers.ValidationError("This phone number is already registered")
         return cleaned_phone
 
 class UserSerializer(serializers.ModelSerializer):
@@ -35,7 +29,7 @@ class UserSerializer(serializers.ModelSerializer):
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):
-        profile_data = validated_data.pop('profile', {})
+        profile_data = validated_data.pop('profile', None)
         password = validated_data.pop('password')
         
         # Create user
@@ -44,7 +38,11 @@ class UserSerializer(serializers.ModelSerializer):
         user.save()
 
         # Create profile
-        UserProfile.objects.create(user=user, **profile_data)
+        if profile_data:
+            UserProfile.objects.create(user=user, **profile_data)
+        else:
+            UserProfile.objects.create(user=user)
+
         return user
 
     def validate(self, data):

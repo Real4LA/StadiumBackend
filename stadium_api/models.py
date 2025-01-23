@@ -15,7 +15,7 @@ class CalendarSettings(models.Model):
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    phone = models.CharField(max_length=20, blank=True, null=True)
+    phone = models.CharField(max_length=8, unique=True, null=True, blank=True)
     verification_code = models.CharField(max_length=6, blank=True, null=True)
     is_verified = models.BooleanField(default=False)
     last_cancellation = models.DateTimeField(null=True, blank=True)
