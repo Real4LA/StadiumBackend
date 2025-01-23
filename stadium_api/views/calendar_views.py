@@ -296,80 +296,77 @@ def cancel_booking(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def my_bookings(request):
-    """Get all bookings for the current user."""
+    """Get My Bookings."""
+    date_str = request.GET.get('date')
+    calendar_id = request.GET.get('calendar_id')
+    user_id_str = str(request.user.id)
+    
+    if not date_str or not calendar_id:
+        return Response(
+            {'error': 'Date and calendar_id are required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
     try:
-        print("\n=== Starting my_bookings ===")
-        print(f"User ID: {request.user.id}")
+        # Parse the date
+        date = datetime.strptime(date_str, '%Y-%m-%d')
+        start_time = date.replace(hour=0, minute=0, second=0).isoformat() + 'Z'
+        end_time = date.replace(hour=23, minute=59, second=59).isoformat() + 'Z'
+        
+        print(f"Fetching slots for calendar: {calendar_id}")
+        print(f"Time range: {start_time} to {end_time}")
         
         # Get calendar service
         service = get_calendar_service()
         
-        # Get all calendars
-        calendars_result = service.calendarList().list().execute()
-        calendars = calendars_result.get('items', [])
-        print(f"Found {len(calendars)} calendars")
+        # Get events for the day
+        try:
+            events_result = service.events().list(
+                calendarId=calendar_id,
+                timeMin=start_time,
+                timeMax=end_time,
+                singleEvents=True,
+                orderBy='startTime'
+            ).execute()
+            print(f"Successfully fetched {len(events_result.get('items', []))} events")
+        except Exception as e:
+            print(f"Error fetching events: {str(e)}")
+            raise ValueError(f"Failed to fetch events: {str(e)}")
         
-        if not calendars:
-            print("No calendars found")
-            return Response({'slots': []})
+        events = events_result.get('items', [])
         
-        all_slots = []
-        now = datetime.utcnow().isoformat() + 'Z'
-        user_id_str = str(request.user.id)
-        
-        for calendar in calendars:
-            calendar_id = calendar['id']
-            print(f"\nChecking calendar: {calendar['summary']}")
-            
-            try:
-                # Get events for today onwards
-                events_result = service.events().list(
-                    calendarId=calendar_id,
-                    timeMin=now,
-                    singleEvents=True,
-                    orderBy='startTime'
-                ).execute()
-                
-                events = events_result.get('items', [])
-                print(f"Found {len(events)} events")
-                
-                # Process events into slots
-                for event in events:
-                    # Check if this event is booked by the current user
-                    description = event.get('description', '')
-                    user_id_pattern = f"🆔 User ID: {user_id_str}"
-                    
-                    if user_id_pattern not in description:
-                        continue
-                    
-                    start = event['start'].get('dateTime', event['start'].get('date'))
-                    end = event['end'].get('dateTime', event['end'].get('date'))
-                    
-                    # Convert to datetime objects
-                    start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
-                    end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
-                    
-                    # Add slot
-                    slot = {
-                        'start': start_dt.strftime('%H:%M'),
-                        'end': end_dt.strftime('%H:%M'),
-                        'event_id': event['id'],
-                        'stadiumId': calendar.get('id'),  # Add stadiumId
-                        'stadiumName': calendar.get('summary'),  # Add stadiumName
-                        'calendar_id': calendar_id  # Keep calendar_id for operations
-                    }
-                    all_slots.append(slot)
-                    print(f"Added slot: {slot}")
-                    
-            except Exception as e:
-                print(f"Error processing calendar {calendar_id}: {str(e)}")
+        # Process events into available slots
+        available_slots = []
+        for event in events:
+            # Only include events that have 'match' in their description
+            description = event.get('description', '').lower()
+            if f"🆔 User ID: {user_id_str}" not in description:
                 continue
+                
+            # Skip if already booked
+            if event.get('extendedProperties', {}).get('private', {}).get('user_id'):
+                print(f"Skipping booked slot by user {event['extendedProperties']['private']['user_id']}")
+                continue
+                
+            start = event['start'].get('dateTime', event['start'].get('date'))
+            end = event['end'].get('dateTime', event['end'].get('date'))
+            
+            # Convert to datetime objects
+            start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
+            end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
+            
+            # Add available slot
+            available_slots.append({
+                'start': start_dt.strftime('%H:%M'),
+                'end': end_dt.strftime('%H:%M'),
+                'event_id': event['id']
+            })
         
-        print(f"\nTotal slots found: {len(all_slots)}")
-        return Response({'slots': all_slots})
-        
+        print(f"Returning {len(available_slots)} available slots")
+        return Response({'slots': available_slots})
+    
     except Exception as e:
-        print(f"Error in my_bookings: {str(e)}")
+        print(f"Error in available_slots: {str(e)}")
         return Response(
             {'error': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
