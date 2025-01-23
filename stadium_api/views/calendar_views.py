@@ -303,7 +303,6 @@ def my_bookings(request):
         print(f"User Email: {request.user.email}")
         print(f"Request path: {request.path}")
         print(f"Request method: {request.method}")
-        print(f"Request headers: {dict(request.headers)}")
         
         # Get calendar service
         try:
@@ -331,9 +330,6 @@ def my_bookings(request):
                 print(f"\nCalendar details:")
                 print(f"- Summary: {cal.get('summary')}")
                 print(f"- ID: {cal.get('id')}")
-                print(f"- Access Role: {cal.get('accessRole')}")
-                print(f"- Primary: {cal.get('primary', False)}")
-                print(f"- Selected: {cal.get('selected', False)}")
         except Exception as e:
             print(f"ERROR: Failed to get calendars: {str(e)}")
             return Response(
@@ -342,6 +338,8 @@ def my_bookings(request):
             )
         
         all_bookings = []
+        user_id_str = f"User ID: {request.user.id}"  # This is how it appears in the description
+        
         for calendar in calendars:
             calendar_id = calendar['id']
             print(f"\nProcessing calendar: {calendar['summary']} ({calendar_id})")
@@ -368,21 +366,15 @@ def my_bookings(request):
                 
                 # Filter events booked by the current user
                 for event in events:
-                    print(f"\nEvent details:")
-                    print(f"- ID: {event.get('id')}")
-                    print(f"- Summary: {event.get('summary')}")
-                    print(f"- Status: {event.get('status')}")
-                    print(f"- Created: {event.get('created')}")
-                    print(f"- Updated: {event.get('updated')}")
+                    print(f"\nChecking event: {event.get('id')}")
+                    print(f"Event summary: {event.get('summary')}")
                     
-                    event_props = event.get('extendedProperties', {}).get('private', {})
-                    event_user_id = event_props.get('user_id')
+                    description = event.get('description', '')
+                    print(f"Event description: {description}")
+                    print(f"Looking for user ID: {user_id_str}")
                     
-                    print(f"Extended properties: {event_props}")
-                    print(f"Event user_id: {event_user_id}")
-                    print(f"Current user_id: {str(request.user.id)}")
-                    
-                    if event_user_id == str(request.user.id):
+                    # Check if the user ID appears in the description
+                    if user_id_str in description:
                         print("Match found! Adding to bookings")
                         
                         start = event['start'].get('dateTime', event['start'].get('date'))
@@ -398,7 +390,7 @@ def my_bookings(request):
                             'stadium_name': calendar['summary'],
                             'start_time': start_dt.isoformat() + 'Z',
                             'end_time': end_dt.isoformat() + 'Z',
-                            'description': event.get('description', ''),
+                            'description': description,
                             'summary': event.get('summary', '')
                         }
                         all_bookings.append(booking)
@@ -410,6 +402,9 @@ def my_bookings(request):
                 print(f"ERROR: Failed to process calendar {calendar_id}: {str(e)}")
                 print(f"Error details: {type(e).__name__}: {str(e)}")
                 continue
+        
+        # Sort bookings by start time
+        all_bookings.sort(key=lambda x: x['start_time'])
         
         print(f"\n=== Completed my_bookings ===")
         print(f"Total bookings found: {len(all_bookings)}")
