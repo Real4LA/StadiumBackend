@@ -8,6 +8,9 @@ from datetime import datetime, timedelta
 from django.conf import settings
 import json
 import os
+from django.db import transaction
+from ..models import UserProfile
+from django.utils import timezone
 
 def get_calendar_service():
     """Helper function to create Google Calendar service."""
@@ -105,12 +108,14 @@ def available_slots(request):
         for event in events:
             # Only include events that have 'match' in their description
             description = event.get('description', '').lower()
+            summary = event.get('summary', '').lower()
+            
+            # Skip if not a match event or if already booked
             if 'match' not in description:
                 continue
                 
-            # Skip if already booked
-            if event.get('extendedProperties', {}).get('private', {}).get('user_id'):
-                print(f"Skipping booked slot by user {event['extendedProperties']['private']['user_id']}")
+            if '🏟️ booked match' in summary:
+                print(f"Skipping booked slot with summary: {event.get('summary')}")
                 continue
                 
             start = event['start'].get('dateTime', event['start'].get('date'))
@@ -153,7 +158,6 @@ def book_slot(request):
             )
         
         # Check if user is in cooldown period
-        from ..models import UserProfile
         user_profile = UserProfile.objects.get(user=request.user)
         if user_profile.last_cancellation:
             current_time = datetime.utcnow()
@@ -262,13 +266,11 @@ def cancel_booking(request):
             )
         
         # Update user's last cancellation time
-        from django.db import transaction
-        from ..models import UserProfile
-        
         with transaction.atomic():
-            user_profile, _ = UserProfile.objects.get_or_create(user=request.user)
-            user_profile.last_cancellation = datetime.utcnow()
+            user_profile = UserProfile.objects.select_for_update().get(user=request.user)
+            user_profile.last_cancellation = timezone.now()
             user_profile.save()
+            print(f"Updated last_cancellation for user {request.user.id} to {user_profile.last_cancellation}")
         
         # Reset event to default state
         event.update({
