@@ -60,22 +60,15 @@ class UserViewSet(viewsets.ModelViewSet):
             # Create user with is_active=False
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            user = serializer.save(is_active=False)
-            logger.info(f"Created user with ID: {user.id}")
-
-            # Generate and save verification code
+            
+            # Generate verification code before creating user
             verification_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
             logger.info(f"Generated verification code: {verification_code}")
-
-            # Update profile with verification code
-            user.profile.verification_code = verification_code
-            user.profile.is_verified = False
-            user.profile.save()
             
-            # Send verification email
+            # Prepare email
             subject = 'Verify your email address'
             message = f'''
-Hi {user.first_name},
+Hi {request.data.get('first_name')},
 
 Thank you for signing up! Your verification code is:
 
@@ -89,17 +82,37 @@ Best regards,
 Tottenham Stadium Team
 '''
             
-            logger.info(f"Attempting to send verification email to: {user.email}")
-            logger.info(f"Using email settings - HOST: {settings.EMAIL_HOST}, PORT: {settings.EMAIL_PORT}")
+            # Try to send email first
+            logger.info(f"Attempting to send verification email to: {request.data.get('email')}")
+            logger.info(f"Using email settings - HOST: {settings.EMAIL_HOST}, PORT: {settings.EMAIL_PORT}, USER: {settings.EMAIL_HOST_USER}")
             try:
                 send_mail(
                     subject,
                     message,
                     settings.DEFAULT_FROM_EMAIL,
-                    [user.email],
+                    [request.data.get('email')],
                     fail_silently=False,
                 )
-                logger.info(f"Successfully sent verification email to: {user.email}")
+                logger.info(f"Successfully sent verification email to: {request.data.get('email')}")
+                
+                # Only create user if email was sent successfully
+                user = serializer.save(is_active=False)
+                logger.info(f"Created user with ID: {user.id}")
+                
+                # Update profile with verification code
+                user.profile.verification_code = verification_code
+                user.profile.is_verified = False
+                user.profile.save()
+                
+                # Generate tokens
+                refresh = RefreshToken.for_user(user)
+                
+                return Response({
+                    "user": UserSerializer(user).data,
+                    "refresh": str(refresh),
+                    "access": str(refresh.access_token),
+                }, status=status.HTTP_201_CREATED)
+                
             except Exception as email_error:
                 logger.error(f"Failed to send verification email: {str(email_error)}")
                 logger.exception(email_error)
@@ -107,12 +120,6 @@ Tottenham Stadium Team
                     "error": "Failed to send verification email. Please try again.",
                     "details": str(email_error)
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-            return Response({
-                "message": "Please check your email for the verification code.",
-                "email": user.email,
-                "userId": user.id
-            }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             logger.error(f"Error in create: {str(e)}")
