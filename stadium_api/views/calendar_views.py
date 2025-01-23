@@ -161,8 +161,17 @@ def book_slot(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Get user profile details
-        user_profile = request.user.userprofile
+        # Get or create user profile
+        from django.db import transaction
+        from ..models import UserProfile
+        
+        with transaction.atomic():
+            try:
+                user_profile = request.user.userprofile
+            except UserProfile.DoesNotExist:
+                user_profile = UserProfile.objects.create(user=request.user)
+        
+        # Get user details
         user_name = f"{request.user.first_name} {request.user.last_name}".strip() or "Anonymous"
         user_phone = user_profile.phone if hasattr(user_profile, 'phone') else "No phone"
         
