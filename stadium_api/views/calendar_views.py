@@ -301,8 +301,6 @@ def my_bookings(request):
         print("\n=== Starting my_bookings ===")
         print(f"User ID: {request.user.id}")
         print(f"User Email: {request.user.email}")
-        print(f"Request path: {request.path}")
-        print(f"Request method: {request.method}")
         
         # Get calendar service
         try:
@@ -325,11 +323,6 @@ def my_bookings(request):
             if not calendars:
                 print("WARNING: No calendars found. Check service account permissions.")
                 return Response({'bookings': []})
-                
-            for cal in calendars:
-                print(f"\nCalendar details:")
-                print(f"- Summary: {cal.get('summary')}")
-                print(f"- ID: {cal.get('id')}")
         except Exception as e:
             print(f"ERROR: Failed to get calendars: {str(e)}")
             return Response(
@@ -338,7 +331,7 @@ def my_bookings(request):
             )
         
         all_bookings = []
-        user_id_str = f"User ID: {request.user.id}"  # This is how it appears in the description
+        user_id_str = str(request.user.id)
         
         for calendar in calendars:
             calendar_id = calendar['id']
@@ -369,12 +362,20 @@ def my_bookings(request):
                     print(f"\nChecking event: {event.get('id')}")
                     print(f"Event summary: {event.get('summary')}")
                     
-                    description = event.get('description', '')
-                    print(f"Event description: {description}")
-                    print(f"Looking for user ID: {user_id_str}")
+                    # Check extended properties first
+                    extended_props = event.get('extendedProperties', {}).get('private', {})
+                    stored_user_id = extended_props.get('user_id')
+                    print(f"Extended properties user_id: {stored_user_id}")
                     
-                    # Check if the user ID appears in the description
-                    if user_id_str in description:
+                    # Check description as fallback
+                    description = event.get('description', '')
+                    description_user_id = None
+                    if f"User ID: {user_id_str}" in description:
+                        description_user_id = user_id_str
+                    print(f"Description user_id: {description_user_id}")
+                    
+                    # Match if user ID is found in either place
+                    if stored_user_id == user_id_str or description_user_id == user_id_str:
                         print("Match found! Adding to bookings")
                         
                         start = event['start'].get('dateTime', event['start'].get('date'))
