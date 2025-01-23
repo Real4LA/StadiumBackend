@@ -300,124 +300,84 @@ def my_bookings(request):
     try:
         print("\n=== Starting my_bookings ===")
         print(f"User ID: {request.user.id}")
-        print(f"User Email: {request.user.email}")
         
         # Get calendar service
-        try:
-            service = get_calendar_service()
-            print("Successfully got calendar service")
-        except Exception as e:
-            print(f"ERROR: Failed to get calendar service: {str(e)}")
-            return Response(
-                {'error': 'Failed to access calendar service'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        service = get_calendar_service()
         
         # Get all calendars
-        try:
-            print("\nFetching calendar list...")
-            calendars_result = service.calendarList().list().execute()
-            calendars = calendars_result.get('items', [])
-            print(f"Found {len(calendars)} calendars")
-            
-            if not calendars:
-                print("WARNING: No calendars found. Check service account permissions.")
-                return Response({'bookings': []})
-        except Exception as e:
-            print(f"ERROR: Failed to get calendars: {str(e)}")
-            return Response(
-                {'error': 'Failed to retrieve calendars'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        calendars_result = service.calendarList().list().execute()
+        calendars = calendars_result.get('items', [])
+        print(f"Found {len(calendars)} calendars")
+        
+        if not calendars:
+            print("No calendars found")
+            return Response({'bookings': []})
         
         all_bookings = []
+        now = datetime.utcnow().isoformat() + 'Z'
         user_id_str = str(request.user.id)
         
         for calendar in calendars:
             calendar_id = calendar['id']
-            print(f"\nProcessing calendar: {calendar['summary']} ({calendar_id})")
+            print(f"\nChecking calendar: {calendar['summary']}")
             
-            # Get events from now onwards
-            now = datetime.utcnow().isoformat() + 'Z'
             try:
-                print(f"Fetching events from {now} onwards...")
+                # Get all events that are marked as booked (summary contains "BOOKED")
                 events_result = service.events().list(
                     calendarId=calendar_id,
                     timeMin=now,
                     maxResults=100,
                     singleEvents=True,
                     orderBy='startTime',
-                    showDeleted=False
+                    q='BOOKED'  # Search for events marked as booked
                 ).execute()
                 
                 events = events_result.get('items', [])
-                print(f"Found {len(events)} events in calendar")
+                print(f"Found {len(events)} booked events")
                 
-                if not events:
-                    print("No events found in this calendar")
-                    continue
-                
-                # Filter events booked by the current user
                 for event in events:
-                    print(f"\nChecking event: {event.get('id')}")
-                    print(f"Event summary: {event.get('summary')}")
-                    
-                    # Check extended properties first
-                    extended_props = event.get('extendedProperties', {}).get('private', {})
-                    stored_user_id = extended_props.get('user_id')
-                    print(f"Extended properties user_id: {stored_user_id}")
-                    
-                    # Check description as fallback
+                    # Only process events that are actually booked
+                    if '🏟️ BOOKED MATCH' not in event.get('summary', ''):
+                        continue
+                        
+                    # Check if this event is booked by the current user
                     description = event.get('description', '')
-                    description_user_id = None
                     user_id_pattern = f"🆔 User ID: {user_id_str}"
-                    if user_id_pattern in description:
-                        description_user_id = user_id_str
-                        print(f"Found user ID in description with pattern: {user_id_pattern}")
-                    print(f"Description user_id: {description_user_id}")
+                    if user_id_pattern not in description:
+                        continue
+                        
+                    print(f"Found booking for user {user_id_str}")
                     
-                    # Match if user ID is found in either place
-                    if stored_user_id == user_id_str or description_user_id == user_id_str:
-                        print("Match found! Adding to bookings")
-                        print(f"Full event description: {description}")
-                        print(f"Extended properties: {extended_props}")
-                        
-                        start = event['start'].get('dateTime', event['start'].get('date'))
-                        end = event['end'].get('dateTime', event['end'].get('date'))
-                        
-                        # Convert to datetime objects for formatting
-                        start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
-                        end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
-                        
-                        booking = {
-                            'calendar_id': calendar_id,
-                            'event_id': event['id'],
-                            'stadium_name': calendar['summary'],
-                            'start_time': start_dt.isoformat() + 'Z',
-                            'end_time': end_dt.isoformat() + 'Z',
-                            'description': description,
-                            'summary': event.get('summary', '')
-                        }
-                        all_bookings.append(booking)
-                        print(f"Added booking: {booking}")
-                    else:
-                        print("No match, skipping event")
-                        
+                    start = event['start'].get('dateTime', event['start'].get('date'))
+                    end = event['end'].get('dateTime', event['end'].get('date'))
+                    
+                    # Convert to datetime objects for formatting
+                    start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
+                    end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
+                    
+                    booking = {
+                        'calendar_id': calendar_id,
+                        'event_id': event['id'],
+                        'stadium_name': calendar['summary'],
+                        'start_time': start_dt.isoformat() + 'Z',
+                        'end_time': end_dt.isoformat() + 'Z',
+                        'summary': event.get('summary', '')
+                    }
+                    all_bookings.append(booking)
+                    print(f"Added booking: {booking}")
+                    
             except Exception as e:
-                print(f"ERROR: Failed to process calendar {calendar_id}: {str(e)}")
-                print(f"Error details: {type(e).__name__}: {str(e)}")
+                print(f"Error processing calendar {calendar_id}: {str(e)}")
                 continue
         
         # Sort bookings by start time
         all_bookings.sort(key=lambda x: x['start_time'])
+        print(f"\nTotal bookings found: {len(all_bookings)}")
         
-        print(f"\n=== Completed my_bookings ===")
-        print(f"Total bookings found: {len(all_bookings)}")
         return Response({'bookings': all_bookings})
-    
+        
     except Exception as e:
-        print(f"ERROR: Failed in my_bookings: {str(e)}")
-        print(f"Error details: {type(e).__name__}: {str(e)}")
+        print(f"Error in my_bookings: {str(e)}")
         return Response(
             {'error': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
