@@ -370,13 +370,17 @@ def my_bookings(request):
                     # Check description as fallback
                     description = event.get('description', '')
                     description_user_id = None
-                    if f"User ID: {user_id_str}" in description:
+                    user_id_pattern = f"🆔 User ID: {user_id_str}"
+                    if user_id_pattern in description:
                         description_user_id = user_id_str
+                        print(f"Found user ID in description with pattern: {user_id_pattern}")
                     print(f"Description user_id: {description_user_id}")
                     
                     # Match if user ID is found in either place
                     if stored_user_id == user_id_str or description_user_id == user_id_str:
                         print("Match found! Adding to bookings")
+                        print(f"Full event description: {description}")
+                        print(f"Extended properties: {extended_props}")
                         
                         start = event['start'].get('dateTime', event['start'].get('date'))
                         end = event['end'].get('dateTime', event['end'].get('date'))
