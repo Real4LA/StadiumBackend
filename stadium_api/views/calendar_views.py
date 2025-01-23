@@ -94,11 +94,16 @@ def available_slots(request):
         events = events_result.get('items', [])
         
         # Process events into available slots
-        slots = []
+        available_slots = []
         for event in events:
             # Only include events that have 'match' in their description
             description = event.get('description', '').lower()
             if 'match' not in description:
+                continue
+                
+            # Skip if already booked
+            if event.get('extendedProperties', {}).get('private', {}).get('user_id'):
+                print(f"Skipping booked slot by user {event['extendedProperties']['private']['user_id']}")
                 continue
                 
             start = event['start'].get('dateTime', event['start'].get('date'))
@@ -108,23 +113,15 @@ def available_slots(request):
             start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
             end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
             
-            # Check if the slot is booked by checking for user_id in extendedProperties
-            is_booked = False
-            extended_props = event.get('extendedProperties', {}).get('private', {})
-            if extended_props.get('user_id'):
-                is_booked = True
-                print(f"Slot {start_dt.strftime('%H:%M')} is booked by user {extended_props.get('user_id')}")
-            
-            # Add slot
-            slots.append({
+            # Add available slot
+            available_slots.append({
                 'start': start_dt.strftime('%H:%M'),
                 'end': end_dt.strftime('%H:%M'),
-                'event_id': event['id'],
-                'booked': is_booked
+                'event_id': event['id']
             })
         
-        print(f"Returning {len(slots)} slots ({sum(1 for s in slots if s['booked'])} booked)")
-        return Response({'slots': slots})
+        print(f"Returning {len(available_slots)} available slots")
+        return Response({'slots': available_slots})
     
     except Exception as e:
         print(f"Error in available_slots: {str(e)}")
@@ -158,7 +155,7 @@ def book_slot(request):
         ).execute()
         
         # Check if already booked
-        if event.get('extendedProperties', {}).get('private', {}).get('booked') == 'true':
+        if event.get('extendedProperties', {}).get('private', {}).get('user_id'):
             return Response(
                 {'error': 'This slot is already booked'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -167,10 +164,14 @@ def book_slot(request):
         # Update event with booking information
         event['extendedProperties'] = event.get('extendedProperties', {})
         event['extendedProperties']['private'] = {
-            'booked': 'true',
             'user_id': str(request.user.id),
             'booking_time': datetime.utcnow().isoformat() + 'Z'
         }
+        
+        # Update the event summary and description to show it's booked
+        original_description = event.get('description', '')
+        event['summary'] = f"Booked: {event.get('summary', 'Match')}"
+        event['description'] = f"{original_description}\n\nBooked by User ID: {request.user.id}\nBooking Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}"
         
         # Update the event
         updated_event = service.events().update(
@@ -179,12 +180,14 @@ def book_slot(request):
             body=event
         ).execute()
         
+        print(f"Successfully booked slot for user {request.user.id}")
         return Response({
             'message': 'Slot booked successfully',
             'event': updated_event
         })
     
     except Exception as e:
+        print(f"Error in book_slot: {str(e)}")
         return Response(
             {'error': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -221,11 +224,17 @@ def cancel_booking(request):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Update event to remove booking information
+        # Remove booking information
         event['extendedProperties'] = event.get('extendedProperties', {})
-        event['extendedProperties']['private'] = {
-            'booked': 'false'
-        }
+        event['extendedProperties']['private'] = {}
+        
+        # Restore original event summary and description
+        original_summary = event.get('summary', '').replace('Booked: ', '')
+        event['summary'] = original_summary
+        
+        # Remove booking information from description
+        description_lines = event.get('description', '').split('\n\n')
+        event['description'] = description_lines[0] if description_lines else ''
         
         # Update the event
         updated_event = service.events().update(
@@ -234,12 +243,14 @@ def cancel_booking(request):
             body=event
         ).execute()
         
+        print(f"Successfully cancelled booking for user {request.user.id}")
         return Response({
             'message': 'Booking cancelled successfully',
             'event': updated_event
         })
     
     except Exception as e:
+        print(f"Error in cancel_booking: {str(e)}")
         return Response(
             {'error': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
