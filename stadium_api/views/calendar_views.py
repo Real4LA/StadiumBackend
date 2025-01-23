@@ -301,19 +301,28 @@ def my_bookings(request):
         # Get calendar service
         service = get_calendar_service()
         
-        # Get all calendars
-        calendars_result = service.calendarList().list().execute()
-        calendars = calendars_result.get('items', [])
-        
-        if not calendars:
-            return Response({'slots': []})
+        # Define stadium calendars
+        stadiums = [
+            {
+                'id': '7f7f09b9c36dcf8146e7b75a0f9a5f6a7c7e7e7c7e7e7e7c7e7e7e7c7e7e7e7@group.calendar.google.com',
+                'name': 'Stadium 1'
+            },
+            {
+                'id': '1d9c2a8c8f8d8c8d8c8d8c8d8c8d8c8d8c8d8c8d8c8d8c8d8c8d8c8d8c8d8@group.calendar.google.com',
+                'name': 'Stadium 2'
+            },
+            {
+                'id': 'a233987f0f4b9c95f17c3abf7055ab3287b7765b2c24c02968360fe68a3f2071@group.calendar.google.com',
+                'name': 'Stadium 3'
+            }
+        ]
         
         all_slots = []
         now = datetime.utcnow().isoformat() + 'Z'
         user_id_str = str(request.user.id)
         
-        for calendar in calendars:
-            calendar_id = calendar['id']
+        for stadium in stadiums:
+            calendar_id = stadium['id']
             try:
                 events_result = service.events().list(
                     calendarId=calendar_id,
@@ -346,8 +355,8 @@ def my_bookings(request):
                         'start': start_dt.strftime('%H:%M'),
                         'end': end_dt.strftime('%H:%M'),
                         'event_id': event['id'],
-                        'stadiumId': calendar['id'],
-                        'stadiumName': calendar['summary'],
+                        'stadiumId': stadium['id'],
+                        'stadiumName': stadium['name'],
                         'calendar_id': calendar_id
                     }
                     all_slots.append(slot)
