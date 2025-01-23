@@ -237,3 +237,68 @@ def cancel_booking(request):
             {'error': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_bookings(request):
+    """Get all bookings for the current user."""
+    try:
+        # Get calendar service
+        service = get_calendar_service()
+        
+        # Get all calendars
+        calendars_result = service.calendarList().list().execute()
+        calendars = calendars_result.get('items', [])
+        
+        print(f"Fetching bookings for user: {request.user.id}")
+        
+        all_bookings = []
+        for calendar in calendars:
+            calendar_id = calendar['id']
+            print(f"Checking calendar: {calendar_id}")
+            
+            # Get events from now onwards
+            now = datetime.utcnow().isoformat() + 'Z'
+            events_result = service.events().list(
+                calendarId=calendar_id,
+                timeMin=now,
+                singleEvents=True,
+                orderBy='startTime'
+            ).execute()
+            
+            events = events_result.get('items', [])
+            
+            # Filter events booked by the current user
+            for event in events:
+                # Check if event is booked by current user
+                if (event.get('extendedProperties', {})
+                        .get('private', {})
+                        .get('user_id') == str(request.user.id)):
+                    
+                    start = event['start'].get('dateTime', event['start'].get('date'))
+                    end = event['end'].get('dateTime', event['end'].get('date'))
+                    
+                    # Convert to datetime objects for formatting
+                    start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
+                    end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
+                    
+                    booking = {
+                        'calendar_id': calendar_id,
+                        'calendar_name': calendar['summary'],
+                        'event_id': event['id'],
+                        'date': start_dt.strftime('%Y-%m-%d'),
+                        'start_time': start_dt.strftime('%H:%M'),
+                        'end_time': end_dt.strftime('%H:%M'),
+                        'description': event.get('description', '')
+                    }
+                    all_bookings.append(booking)
+        
+        print(f"Found {len(all_bookings)} bookings for user")
+        return Response({'bookings': all_bookings})
+    
+    except Exception as e:
+        print(f"Error in my_bookings: {str(e)}")
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

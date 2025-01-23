@@ -7,6 +7,7 @@ from .views import (
     available_slots,
     book_slot,
     cancel_booking,
+    my_bookings,
 )
 
 router = DefaultRouter()
@@ -19,4 +20,5 @@ urlpatterns = [
     path('calendar/available_slots/', available_slots, name='available-slots'),
     path('calendar/book_slot/', book_slot, name='book-slot'),
     path('calendar/cancel_booking/', cancel_booking, name='cancel-booking'),
+    path('calendar/my-bookings/', my_bookings, name='my-bookings'),
 ]
