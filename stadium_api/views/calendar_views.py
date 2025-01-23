@@ -18,15 +18,39 @@ def get_calendar_service():
             raise ValueError("Google service account credentials not found in environment")
         
         # Parse credentials from JSON string
-        creds_info = json.loads(creds_json)
-        credentials = service_account.Credentials.from_service_account_info(
-            creds_info,
-            scopes=['https://www.googleapis.com/auth/calendar']
-        )
-        return build('calendar', 'v3', credentials=credentials)
+        try:
+            creds_info = json.loads(creds_json)
+            print("Successfully parsed service account credentials")
+        except json.JSONDecodeError as e:
+            print(f"Error parsing service account credentials: {str(e)}")
+            raise ValueError("Invalid service account credentials format")
+        
+        try:
+            credentials = service_account.Credentials.from_service_account_info(
+                creds_info,
+                scopes=['https://www.googleapis.com/auth/calendar']
+            )
+            print("Successfully created service account credentials")
+        except Exception as e:
+            print(f"Error creating service account credentials: {str(e)}")
+            raise ValueError("Failed to create service account credentials")
+        
+        try:
+            service = build('calendar', 'v3', credentials=credentials)
+            print("Successfully created calendar service")
+            
+            # Test calendar access
+            service.calendarList().list().execute()
+            print("Successfully verified calendar access")
+            
+            return service
+        except Exception as e:
+            print(f"Error building calendar service or testing access: {str(e)}")
+            raise ValueError("Failed to create or verify calendar service")
+            
     except Exception as e:
-        print(f"Error creating calendar service: {str(e)}")
-        raise
+        print(f"Error in get_calendar_service: {str(e)}")
+        raise ValueError(f"Calendar service initialization failed: {str(e)}")
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -47,23 +71,36 @@ def available_slots(request):
         start_time = date.replace(hour=0, minute=0, second=0).isoformat() + 'Z'
         end_time = date.replace(hour=23, minute=59, second=59).isoformat() + 'Z'
         
+        print(f"Fetching slots for calendar: {calendar_id}")
+        print(f"Time range: {start_time} to {end_time}")
+        
         # Get calendar service
         service = get_calendar_service()
         
         # Get events for the day
-        events_result = service.events().list(
-            calendarId=calendar_id,
-            timeMin=start_time,
-            timeMax=end_time,
-            singleEvents=True,
-            orderBy='startTime'
-        ).execute()
+        try:
+            events_result = service.events().list(
+                calendarId=calendar_id,
+                timeMin=start_time,
+                timeMax=end_time,
+                singleEvents=True,
+                orderBy='startTime'
+            ).execute()
+            print(f"Successfully fetched {len(events_result.get('items', []))} events")
+        except Exception as e:
+            print(f"Error fetching events: {str(e)}")
+            raise ValueError(f"Failed to fetch events: {str(e)}")
         
         events = events_result.get('items', [])
         
         # Process events into available slots
         slots = []
         for event in events:
+            # Only include events that have 'match' in their description
+            description = event.get('description', '').lower()
+            if 'match' not in description:
+                continue
+                
             start = event['start'].get('dateTime', event['start'].get('date'))
             end = event['end'].get('dateTime', event['end'].get('date'))
             
@@ -79,9 +116,11 @@ def available_slots(request):
                 'booked': event.get('extendedProperties', {}).get('private', {}).get('booked', 'false') == 'true'
             })
         
+        print(f"Returning {len(slots)} available slots")
         return Response({'slots': slots})
     
     except Exception as e:
+        print(f"Error in available_slots: {str(e)}")
         return Response(
             {'error': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
