@@ -89,14 +89,24 @@ Best regards,
 Tottenham Stadium Team
 '''
             
-            send_mail(
-                subject,
-                message,
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email],
-                fail_silently=False,
-            )
-            logger.info(f"Sent verification email to: {user.email}")
+            logger.info(f"Attempting to send verification email to: {user.email}")
+            logger.info(f"Using email settings - HOST: {settings.EMAIL_HOST}, PORT: {settings.EMAIL_PORT}")
+            try:
+                send_mail(
+                    subject,
+                    message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [user.email],
+                    fail_silently=False,
+                )
+                logger.info(f"Successfully sent verification email to: {user.email}")
+            except Exception as email_error:
+                logger.error(f"Failed to send verification email: {str(email_error)}")
+                logger.exception(email_error)
+                return Response({
+                    "error": "Failed to send verification email. Please try again.",
+                    "details": str(email_error)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
             return Response({
                 "message": "Please check your email for the verification code.",
@@ -260,19 +270,27 @@ Best regards,
 Tottenham Stadium Team
 '''
             
-            send_mail(
-                subject,
-                message,
-                settings.DEFAULT_FROM_EMAIL,
-                [profile.user.email],
-                fail_silently=False,
-            )
-
-            logger.info(f"Successfully sent new code to {profile.user.email}")
-            return Response({
-                "message": "New verification code sent successfully",
-                "email": profile.user.email
-            })
+            logger.info(f"Attempting to resend verification code to: {profile.user.email}")
+            try:
+                send_mail(
+                    subject,
+                    message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [profile.user.email],
+                    fail_silently=False,
+                )
+                logger.info(f"Successfully resent verification code to: {profile.user.email}")
+                return Response({
+                    "message": "New verification code sent successfully",
+                    "email": profile.user.email
+                })
+            except Exception as email_error:
+                logger.error(f"Failed to resend verification code: {str(email_error)}")
+                logger.exception(email_error)
+                return Response({
+                    "error": "Failed to send verification code. Please try again.",
+                    "details": str(email_error)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         except Exception as e:
             logger.error(f"Error in resend_code: {str(e)}")

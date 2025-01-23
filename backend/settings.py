@@ -220,8 +220,10 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'stadium.v0.1.0@gmail.com'
-EMAIL_HOST_PASSWORD = 'nzst ooly swnz hcwx'
+EMAIL_HOST_PASSWORD = 'nzst ooly swnz hcwx'  # App password
 DEFAULT_FROM_EMAIL = 'Tottenham Stadium <stadium.v0.1.0@gmail.com>'
+EMAIL_TIMEOUT = 30  # Adding timeout
+EMAIL_USE_SSL = False  # Explicitly set SSL to False since we're using TLS
 SITE_NAME = "Stadium Booking"
 
 # Security settings for production
