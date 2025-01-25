@@ -23,7 +23,7 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # React App directory - only use if directory exists
-REACT_APP_DIR = os.path.join(BASE_DIR, 'build')
+# REACT_APP_DIR = os.path.join(BASE_DIR, 'build')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -35,7 +35,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'your-local-dev-key')
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 ALLOWED_HOSTS = [
-    'stadiumbackend.onrender.com',
+    'stadiumbackend.onrender.com',  # Current backend domain
     'localhost',
     '127.0.0.1',
 ]
@@ -74,7 +74,7 @@ ROOT_URLCONF = 'backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [REACT_APP_DIR] if os.path.exists(REACT_APP_DIR) else [],
+        'DIRS': [],  # Remove REACT_APP_DIR
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -139,9 +139,9 @@ STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Only add React build directory to STATICFILES_DIRS if it exists
-STATICFILES_DIRS = []
-if os.path.exists(REACT_APP_DIR):
-    STATICFILES_DIRS.append(os.path.join(REACT_APP_DIR, 'static'))
+# STATICFILES_DIRS = []
+# if os.path.exists(REACT_APP_DIR):
+#     STATICFILES_DIRS.append(os.path.join(REACT_APP_DIR, 'static'))
 
 # Use the new STORAGES setting (Django 4.2+)
 STORAGES = {
@@ -281,6 +281,6 @@ SIMPLE_JWT = {
 SITE_ID = 1
 
 # Serve index.html for all non-API routes in production
-if not DEBUG:
-    WHITENOISE_INDEX_FILE = True
-    WHITENOISE_ROOT = REACT_APP_DIR if os.path.exists(REACT_APP_DIR) else None
+# if not DEBUG:
+#     WHITENOISE_INDEX_FILE = True
+#     WHITENOISE_ROOT = REACT_APP_DIR if os.path.exists(REACT_APP_DIR) else None
