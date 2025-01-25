@@ -332,7 +332,7 @@ def my_bookings(request):
             {
                 'id': 'a233987f0f4b9c95f17c3abf7055ab3287b7765b2c24c02968360fe68a3f2071@group.calendar.google.com',
                 'name': 'Tottenham Stadium - Youth Academy'
-            }
+        }
         ]
         
         all_slots = []
@@ -342,16 +342,16 @@ def my_bookings(request):
         for stadium in stadiums:
             calendar_id = stadium['id']
             try:
-                events_result = service.events().list(
-                    calendarId=calendar_id,
+            events_result = service.events().list(
+                calendarId=calendar_id,
                     timeMin=now,
-                    singleEvents=True,
-                    orderBy='startTime'
-                ).execute()
-                
-                events = events_result.get('items', [])
-                
-                for event in events:
+                singleEvents=True,
+                orderBy='startTime'
+            ).execute()
+            
+            events = events_result.get('items', [])
+            
+            for event in events:
                     # Check if this event is booked by the current user
                     description = event.get('description', '')
                     if '🏟️ BOOKED MATCH' not in event.get('summary', ''):
@@ -387,7 +387,7 @@ def my_bookings(request):
                         'display_text': f"{stadium['name']} - {formatted_date} ({start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')})"
                     }
                     all_slots.append(slot)
-                    
+        
             except Exception as e:
                 print(f"Error processing calendar {calendar_id}: {str(e)}")
                 continue
