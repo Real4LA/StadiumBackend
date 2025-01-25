@@ -63,7 +63,7 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    'backend.middleware.CustomCsrfMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -166,6 +166,23 @@ CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "https://stadium-frontend.onrender.com",
+]
+
+# CSRF settings
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_HTTPONLY = False  # False to allow JavaScript access
+CSRF_COOKIE_SECURE = True
+CSRF_USE_SESSIONS = False
+CSRF_COOKIE_NAME = 'csrftoken'
+
+# Exempt authentication endpoints from CSRF
+CSRF_EXEMPT_URLS = [
+    r'^/auth/login/$',
+    r'^/auth/register/$',
+    r'^/auth/password-reset/$',
+    r'^/auth/password-reset/confirm/$',
+    r'^/auth/verify-code/$',
+    r'^/auth/resend-code/$',
 ]
 
 CORS_ALLOW_METHODS = [
