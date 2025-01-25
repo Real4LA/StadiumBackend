@@ -8,22 +8,78 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from ..serializers import UserSerializer
 from ..models import UserProfile
-from django.core.mail import send_mail
+from django.core.mail import send_mail, get_connection
 from django.conf import settings
 import random
 import logging
+import traceback
+import socket
 
 logger = logging.getLogger(__name__)
+
+def send_verification_email(user, verification_code, is_resend=False):
+    """Helper function to send verification email with enhanced error handling"""
+    try:
+        # Test email settings
+        logger.info("Testing email settings...")
+        logger.info(f"EMAIL_HOST: {settings.EMAIL_HOST}")
+        logger.info(f"EMAIL_PORT: {settings.EMAIL_PORT}")
+        logger.info(f"EMAIL_HOST_USER: {settings.EMAIL_HOST_USER}")
+        logger.info(f"EMAIL_USE_TLS: {settings.EMAIL_USE_TLS}")
+        logger.info(f"DEFAULT_FROM_EMAIL: {settings.DEFAULT_FROM_EMAIL}")
+
+        # Test SMTP connection
+        logger.info("Testing SMTP connection...")
+        connection = get_connection()
+        try:
+            connection.open()
+            logger.info("SMTP connection successful")
+        except socket.error as e:
+            logger.error(f"SMTP connection failed: {str(e)}")
+            raise
+        finally:
+            connection.close()
+
+        subject = 'Your New Verification Code' if is_resend else 'Verify your email address'
+        message = f'''
+Hi {user.first_name or 'there'},
+
+{'Here is your new verification code' if is_resend else 'Thank you for signing up! Your verification code is'}:
+
+{verification_code}
+
+Please enter this code to verify your account.
+
+If you didn't create this account, you can safely ignore this email.
+
+Best regards,
+Tottenham Stadium Team
+'''
+        logger.info(f"Sending email to {user.email}")
+        logger.info(f"Subject: {subject}")
+        logger.info(f"From: {settings.DEFAULT_FROM_EMAIL}")
+
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+        )
+        logger.info(f"Email sent successfully to {user.email}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send email: {str(e)}")
+        logger.error(f"Error type: {type(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [AllowAny]  # Allow any by default
+    permission_classes = [AllowAny]
 
     def get_permissions(self):
-        """
-        Instantiates and returns the list of permissions that this view requires.
-        """
         if self.action == 'me':
             permission_classes = [IsAuthenticated]
         else:
@@ -59,23 +115,6 @@ class UserViewSet(viewsets.ModelViewSet):
             verification_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
             logger.info(f"Generated verification code: {verification_code}")
 
-            # Prepare email content
-            subject = 'Verify your email address'
-            message = f'''
-Hi {request.data.get('first_name', 'there')},
-
-Thank you for signing up! Your verification code is:
-
-{verification_code}
-
-Please enter this code to verify your account.
-
-If you didn't create this account, you can safely ignore this email.
-
-Best regards,
-Tottenham Stadium Team
-'''
-
             # Create user first
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
@@ -90,17 +129,8 @@ Tottenham Stadium Team
 
             # Send verification email
             try:
-                send_mail(
-                    subject,
-                    message,
-                    settings.DEFAULT_FROM_EMAIL,
-                    [user.email],
-                    fail_silently=False,
-                )
-                logger.info(f"Successfully sent verification email to: {user.email}")
+                send_verification_email(user, verification_code)
             except Exception as email_error:
-                logger.error(f"Failed to send verification email: {str(email_error)}")
-                logger.exception(email_error)
                 # If email fails, delete the user and return error
                 user.delete()
                 return Response({
@@ -120,7 +150,7 @@ Tottenham Stadium Team
         except Exception as e:
             logger.error("=== Registration Failed ===")
             logger.error(f"Error: {str(e)}")
-            logger.exception(e)
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return Response({
                 "error": "Registration failed. Please try again.",
                 "details": str(e)
@@ -246,49 +276,24 @@ Tottenham Stadium Team
             profile.save()
 
             # Send new verification email
-            subject = 'Your New Verification Code'
-            message = f'''
-Hi {profile.user.first_name},
-
-Your new verification code is:
-
-{verification_code}
-
-Please enter this code to verify your account.
-
-Best regards,
-Tottenham Stadium Team
-'''
-            
-            logger.info(f"Attempting to resend verification code to: {profile.user.email}")
             try:
-                send_mail(
-                    subject,
-                    message,
-                    settings.DEFAULT_FROM_EMAIL,
-                    [profile.user.email],
-                    fail_silently=False,
-                )
-                logger.info(f"Successfully resent verification code to: {profile.user.email}")
-                return Response({
-                    "message": "New verification code sent successfully",
-                    "email": profile.user.email
-                })
+                send_verification_email(profile.user, verification_code, is_resend=True)
+                return Response({"message": "Verification code resent successfully"})
             except Exception as email_error:
-                logger.error(f"Failed to resend verification code: {str(email_error)}")
-                logger.exception(email_error)
+                logger.error(f"Failed to resend verification email: {str(email_error)}")
                 return Response({
-                    "error": "Failed to send verification code. Please try again.",
+                    "error": "Failed to send verification email. Please try again.",
                     "details": str(email_error)
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         except Exception as e:
-            logger.error(f"Error in resend_code: {str(e)}")
-            logger.exception(e)
-            return Response(
-                {"error": "Failed to resend code. Please try again."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            logger.error("=== Resend Code Failed ===")
+            logger.error(f"Error: {str(e)}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return Response({
+                "error": "Failed to resend code. Please try again.",
+                "details": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated], authentication_classes=[JWTAuthentication])
     def me(self, request):
