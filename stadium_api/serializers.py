@@ -54,12 +54,24 @@ class UserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("This email is already registered.")
         return value
 
+    def validate(self, data):
+        # Add any additional validation here
+        if 'profile' in data and data['profile']:
+            phone = data['profile'].get('phone')
+            if phone:
+                # Clean the phone number
+                cleaned_phone = ''.join(filter(str.isdigit, str(phone)))
+                if UserProfile.objects.filter(phone=cleaned_phone).exists():
+                    raise serializers.ValidationError({
+                        "profile": {"phone": ["This phone number is already registered."]}
+                    })
+                # Update the phone number with cleaned version
+                data['profile']['phone'] = cleaned_phone
+        return data
+
     @transaction.atomic
     def create(self, validated_data):
-        profile_data = {}
-        if 'profile' in validated_data:
-            profile_data = validated_data.pop('profile')
-        
+        profile_data = validated_data.pop('profile', {})
         password = validated_data.pop('password')
         
         # Create user
@@ -97,16 +109,6 @@ class UserSerializer(serializers.ModelSerializer):
             profile.save()
 
         return instance
-
-    def validate(self, data):
-        # Add any additional validation here
-        if 'phone' in data and data['phone']:
-            phone = data['phone']
-            if UserProfile.objects.filter(phone=phone).exists():
-                raise serializers.ValidationError({
-                    "phone": ["This phone number is already registered."]
-                })
-        return data
 
 class UserLoginSerializer(serializers.Serializer):
     username = serializers.CharField()
