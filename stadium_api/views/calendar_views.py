@@ -342,7 +342,7 @@ def my_bookings(request):
         for stadium in stadiums:
             calendar_id = stadium['id']
             try:
-            events_result = service.events().list(
+                events_result = service.events().list(
                 calendarId=calendar_id,
                 timeMin=now,
                 singleEvents=True,
