@@ -15,11 +15,13 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.views.generic import RedirectView
+from stadium_api.views.frontend import index
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('stadium_api.urls')),
-    path('', RedirectView.as_view(url='/admin/', permanent=False)),  # Redirect root to admin
+    # Serve React App - everything not matched above will be handled by React Router
+    re_path(r'^.*', index, name='frontend'),
 ]
