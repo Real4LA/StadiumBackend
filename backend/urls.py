@@ -21,7 +21,7 @@ from stadium_api.views.frontend import index
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('stadium_api.urls')),
+    path('', include('stadium_api.urls')),  # Remove 'api/' prefix to match frontend config
     # Serve React App - everything not matched above will be handled by React Router
     re_path(r'^.*', index, name='frontend'),
 ]
