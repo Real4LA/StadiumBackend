@@ -24,11 +24,11 @@ services:
       - key: EMAIL_USE_TLS
         value: true
       - key: EMAIL_HOST_USER
-        value: stadium.v0.1.0@gmail.com
+        sync: false
       - key: EMAIL_HOST_PASSWORD
-        value: nzst ooly swnz hcwx
+        sync: false
       - key: DEFAULT_FROM_EMAIL
-        value: "Tottenham Stadium <stadium.v0.1.0@gmail.com>"
+        sync: false
 
 databases:
   - name: stadium-db
