@@ -319,19 +319,19 @@ def my_bookings(request):
         # Get calendar service
         service = get_calendar_service()
         
-        # Define stadium calendars
+        # Define stadium calendars with more descriptive names
         stadiums = [
             {
                 'id': '433adde78c577df19c67e7d18b2e932c8aa5b60b05098687a13a227712510f5d@group.calendar.google.com',
-                'name': 'Stadium 1'
+                'name': 'Tottenham Stadium - Main Field'
             },
             {
                 'id': 'c0981f9f07e185a73808a13deb4e2648915ff7f9a28cfe35bb212ff87115a435@group.calendar.google.com',
-                'name': 'Stadium 2'
+                'name': 'Tottenham Stadium - Training Ground'
             },
             {
                 'id': 'a233987f0f4b9c95f17c3abf7055ab3287b7765b2c24c02968360fe68a3f2071@group.calendar.google.com',
-                'name': 'Stadium 3'
+                'name': 'Tottenham Stadium - Youth Academy'
             }
         ]
         
@@ -368,9 +368,13 @@ def my_bookings(request):
                     start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
                     end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
                     
-                    # Add slot with ISO formatted dates
+                    # Format date for display
+                    formatted_date = start_dt.strftime('%A, %B %d, %Y')  # e.g., "Monday, January 15, 2024"
+                    
+                    # Add slot with ISO formatted dates and enhanced display information
                     slot = {
-                        'date': start_dt.date().isoformat(),  # YYYY-MM-DD
+                        'date': start_dt.date().isoformat(),  # YYYY-MM-DD for sorting
+                        'formatted_date': formatted_date,  # Human-readable date
                         'start_time': start_dt.isoformat() + 'Z',  # Full ISO timestamp
                         'end_time': end_dt.isoformat() + 'Z',  # Full ISO timestamp
                         'start': start_dt.strftime('%H:%M'),  # HH:MM for display
@@ -379,7 +383,8 @@ def my_bookings(request):
                         'stadiumId': stadium['id'],
                         'stadiumName': stadium['name'],
                         'calendar_id': calendar_id,
-                        'status': 'booked'
+                        'status': 'booked',
+                        'display_text': f"{stadium['name']} - {formatted_date} ({start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')})"
                     }
                     all_slots.append(slot)
                     
