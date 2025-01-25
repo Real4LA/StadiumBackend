@@ -323,15 +323,15 @@ def my_bookings(request):
         stadiums = [
             {
                 'id': '433adde78c577df19c67e7d18b2e932c8aa5b60b05098687a13a227712510f5d@group.calendar.google.com',
-                'name': 'Tottenham Stadium - Main Field'
+                'name': 'Main Field'
             },
             {
                 'id': 'c0981f9f07e185a73808a13deb4e2648915ff7f9a28cfe35bb212ff87115a435@group.calendar.google.com',
-                'name': 'Tottenham Stadium - Training Ground'
+                'name': 'Academy Stadium'
             },
             {
                 'id': 'a233987f0f4b9c95f17c3abf7055ab3287b7765b2c24c02968360fe68a3f2071@group.calendar.google.com',
-                'name': 'Tottenham Stadium - Youth Academy'
+                'name': 'FG Field'
         }
         ]
         
