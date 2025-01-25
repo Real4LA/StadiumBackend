@@ -257,6 +257,3 @@ SIMPLE_JWT = {
 }
 
 SITE_ID = 1
-
-# Whitenoise storage for static files in production
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
