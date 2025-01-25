@@ -189,13 +189,17 @@ def book_slot(request):
         user_name = f"{request.user.first_name} {request.user.last_name}".strip() or "Anonymous"
         user_phone = user_profile.phone if hasattr(user_profile, 'phone') else "No phone"
         
+        # Store original event properties
+        original_color = event.get('colorId', '0')  # Store original color
+        
         # Update event with booking information
         event['extendedProperties'] = event.get('extendedProperties', {})
         event['extendedProperties']['private'] = {
             'user_id': str(request.user.id),
             'booking_time': datetime.utcnow().isoformat() + 'Z',
             'user_name': user_name,
-            'user_phone': user_phone
+            'user_phone': user_phone,
+            'original_color': original_color  # Store original color in private properties
         }
         
         # Update event details to show it's booked
@@ -272,11 +276,14 @@ def cancel_booking(request):
             user_profile.save()
             print(f"Updated last_cancellation for user {request.user.id} to {user_profile.last_cancellation}")
         
+        # Get original color from private properties
+        original_color = event.get('extendedProperties', {}).get('private', {}).get('original_color', '0')
+        
         # Reset event to default state
         event.update({
             'summary': 'match',
             'description': 'match',
-            'colorId': '2',  # Green color
+            'colorId': original_color,  # Restore original color
             'transparency': 'transparent'  # Show as free
         })
         
