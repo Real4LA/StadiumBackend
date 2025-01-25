@@ -8,6 +8,8 @@ from .views import (
     book_slot,
     cancel_booking,
     my_bookings,
+    request_password_reset,
+    reset_password,
 )
 
 router = DefaultRouter()
@@ -17,6 +19,8 @@ urlpatterns = [
     path('', include(router.urls)),
     path('auth/login/', user_login, name='user-login'),
     path('auth/register/', register_user, name='register'),
+    path('auth/password-reset/', request_password_reset, name='request-password-reset'),
+    path('auth/password-reset/confirm/', reset_password, name='reset-password'),
     path('calendar/available_slots/', available_slots, name='available-slots'),
     path('calendar/book_slot/', book_slot, name='book-slot'),
     path('calendar/cancel_booking/', cancel_booking, name='cancel-booking'),
