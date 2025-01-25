@@ -2,7 +2,15 @@ services:
   - type: web
     name: stadium-backend
     env: python
-    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    buildCommand: |
+      # Install Python dependencies
+      pip install -r requirements.txt
+      # Create build directory
+      mkdir -p build
+      # Copy the static React app from the frontend build
+      cp -r ../frontend-stadium/build/* build/
+      # Collect static files
+      python manage.py collectstatic --noinput
     startCommand: python manage.py migrate && gunicorn backend.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: PYTHON_VERSION
