@@ -344,7 +344,7 @@ def my_bookings(request):
             try:
             events_result = service.events().list(
                 calendarId=calendar_id,
-                    timeMin=now,
+                timeMin=now,
                 singleEvents=True,
                 orderBy='startTime'
             ).execute()
