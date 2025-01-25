@@ -343,15 +343,15 @@ def my_bookings(request):
             calendar_id = stadium['id']
             try:
                 events_result = service.events().list(
-                calendarId=calendar_id,
-                timeMin=now,
-                singleEvents=True,
-                orderBy='startTime'
-            ).execute()
+                    calendarId=calendar_id,
+                    timeMin=now,
+                    singleEvents=True,
+                    orderBy='startTime'
+                ).execute()
             
-            events = events_result.get('items', [])
+                events = events_result.get('items', [])
             
-            for event in events:
+                for event in events:
                     # Check if this event is booked by the current user
                     description = event.get('description', '')
                     if '🏟️ BOOKED MATCH' not in event.get('summary', ''):
@@ -387,11 +387,10 @@ def my_bookings(request):
                         'display_text': f"{stadium['name']} - {formatted_date} ({start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')})"
                     }
                     all_slots.append(slot)
-        
             except Exception as e:
                 print(f"Error processing calendar {calendar_id}: {str(e)}")
                 continue
-        
+
         # Sort slots by date and time
         all_slots.sort(key=lambda x: (x['date'], x['start']))
         return Response({'bookings': all_slots})
