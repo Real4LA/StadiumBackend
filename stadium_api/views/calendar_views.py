@@ -332,45 +332,35 @@ def my_bookings(request):
             {
                 'id': 'a233987f0f4b9c95f17c3abf7055ab3287b7765b2c24c02968360fe68a3f2071@group.calendar.google.com',
                 'name': 'Tottenham Stadium - Youth Academy'
-        }
+            }
         ]
-        
         all_slots = []
         now = datetime.utcnow().isoformat() + 'Z'
         user_id_str = str(request.user.id)
-        
         for stadium in stadiums:
             calendar_id = stadium['id']
             try:
-            events_result = service.events().list(
-                calendarId=calendar_id,
+                events_result = service.events().list(
+                    calendarId=calendar_id,
                     timeMin=now,
-                singleEvents=True,
-                orderBy='startTime'
-            ).execute()
-            
-            events = events_result.get('items', [])
-            
-            for event in events:
+                    singleEvents=True,
+                    orderBy='startTime'
+                ).execute()
+                events = events_result.get('items', [])
+                for event in events:
                     # Check if this event is booked by the current user
                     description = event.get('description', '')
                     if '🏟️ BOOKED MATCH' not in event.get('summary', ''):
                         continue
-                        
                     user_id_pattern = f"🆔 User ID: {user_id_str}"
                     if user_id_pattern not in description:
                         continue
-                    
                     start = event['start'].get('dateTime', event['start'].get('date'))
                     end = event['end'].get('dateTime', event['end'].get('date'))
-                    
                     # Convert to datetime objects
                     start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
                     end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
-                    
                     # Format date for display
-                    formatted_date = start_dt.strftime('%A, %B %d, %Y')  # e.g., "Monday, January 15, 2024"
-                    
                     # Add slot with ISO formatted dates and enhanced display information
                     slot = {
                         'date': start_dt.date().isoformat(),  # YYYY-MM-DD for sorting
@@ -387,15 +377,12 @@ def my_bookings(request):
                         'display_text': f"{stadium['name']} - {formatted_date} ({start_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')})"
                     }
                     all_slots.append(slot)
-        
             except Exception as e:
                 print(f"Error processing calendar {calendar_id}: {str(e)}")
                 continue
-        
         # Sort slots by date and time
         all_slots.sort(key=lambda x: (x['date'], x['start']))
         return Response({'bookings': all_slots})
-        
     except Exception as e:
         return Response(
             {'error': str(e)},
